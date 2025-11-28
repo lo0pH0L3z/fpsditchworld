@@ -6,17 +6,17 @@ let camera, scene, renderer;
 let lastTime = 0;
 let gamepadIndex = null;
 
-// Movement & Aiming settings
-const WALK_SPEED = 10.0; // Increased base speed
-const SLIDE_SPEED = 20.0;
-const SLIDE_DURATION = 1.0; // Seconds
-const JUMP_FORCE = 8.0;
+// Movement & Aiming settings (will be updated from settings)
+let WALK_SPEED = 10.0;
+let SLIDE_SPEED = 20.0;
+const SLIDE_DURATION = 1.0;
+let JUMP_FORCE = 8.0;
 const GRAVITY = 20.0;
 const BASE_HEIGHT = 1.6;
 const SLIDE_HEIGHT = 0.8;
 
-const BASE_LOOK_SPEED = 2.0;
-const ADS_LOOK_SPEED = 0.5;
+let BASE_LOOK_SPEED = 2.0;
+let ADS_LOOK_SPEED = 0.5;
 let currentLookSpeed = BASE_LOOK_SPEED;
 
 let pitch = 0;
@@ -128,6 +128,56 @@ function init() {
             e.gamepad.index, e.gamepad.id);
         document.getElementById('instructions').innerText = "Controller Disconnected. Press any button to reconnect.";
         document.getElementById('instructions').style.color = 'rgba(0, 255, 255, 0.7)';
+    });
+
+    // Settings Modal
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsModal = document.getElementById('settings-modal');
+    const closeSettings = document.getElementById('close-settings');
+
+    settingsBtn.addEventListener('click', () => {
+        settingsModal.style.display = 'block';
+        // Sync checkbox state
+        document.getElementById('invert-look-modal').checked = document.getElementById('invert-look').checked;
+    });
+
+    closeSettings.addEventListener('click', () => {
+        settingsModal.style.display = 'none';
+    });
+
+    // Settings controls
+    document.getElementById('walk-speed').addEventListener('input', (e) => {
+        WALK_SPEED = parseFloat(e.target.value);
+        document.getElementById('walk-speed-val').textContent = e.target.value;
+    });
+
+    document.getElementById('slide-speed').addEventListener('input', (e) => {
+        SLIDE_SPEED = parseFloat(e.target.value);
+        document.getElementById('slide-speed-val').textContent = e.target.value;
+    });
+
+    document.getElementById('jump-force').addEventListener('input', (e) => {
+        JUMP_FORCE = parseFloat(e.target.value);
+        document.getElementById('jump-force-val').textContent = e.target.value;
+    });
+
+    document.getElementById('look-speed').addEventListener('input', (e) => {
+        BASE_LOOK_SPEED = parseFloat(e.target.value);
+        document.getElementById('look-speed-val').textContent = parseFloat(e.target.value).toFixed(1);
+    });
+
+    document.getElementById('ads-speed').addEventListener('input', (e) => {
+        ADS_LOOK_SPEED = parseFloat(e.target.value);
+        document.getElementById('ads-speed-val').textContent = parseFloat(e.target.value).toFixed(1);
+    });
+
+    // Sync invert checkboxes
+    document.getElementById('invert-look').addEventListener('change', (e) => {
+        document.getElementById('invert-look-modal').checked = e.target.checked;
+    });
+
+    document.getElementById('invert-look-modal').addEventListener('change', (e) => {
+        document.getElementById('invert-look').checked = e.target.checked;
     });
 
     renderer.setAnimationLoop(animate);
