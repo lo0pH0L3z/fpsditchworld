@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Editor</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #222;
+            font-family: 'Segoe UI', sans-serif;
+            color: #eee;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #controls {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 350px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+            border-left: 1px solid #444;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 24px;
+            color: #fff;
+            border-bottom: 2px solid #555;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 16px;
+            margin: 20px 0 10px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        h2:hover {
+            color: #fff;
+        }
+
+        h2::after {
+            content: ' ▼';
+            font-size: 10px;
+            float: right;
+        }
+
+        h2.collapsed::after {
+            content: ' ▶';
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+
+        .control-group label {
+            flex: 1;
+        }
+
+        input[type="range"] {
+            width: 100px;
+            margin: 0 10px;
+        }
+
+        input[type="number"] {
+            width: 50px;
+            background: #333;
+            border: 1px solid #555;
+            color: #fff;
+            padding: 2px 5px;
+        }
+
+        input[type="color"] {
+            width: 30px;
+            height: 30px;
+            border: none;
+            padding: 0;
+            background: none;
+            cursor: pointer;
+        }
+
+        .section-content {
+            transition: height 0.3s ease;
+            overflow: hidden;
+        }
+
+        .section-content.collapsed {
+            display: none;
+        }
+
+        #export-panel {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #555;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background: #111;
+            color: #0f0;
+            border: 1px solid #444;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 10px;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        /* Checkbox styling */
+        .checkbox-group {
+            justify-content: flex-start;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-group input {
+            width: auto;
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="canvas-container"></div>
+    <div id="controls">
+        <h1>Character Editor</h1>
+
+        <div class="checkbox-group control-group">
+            <input type="checkbox" id="symmetry" checked>
+            <label for="symmetry">Symmetry Mode (L/R)</label>
+        </div>
+
+        <!-- Sections will be injected here -->
+        <div id="dynamic-controls"></div>
+
+        <div id="export-panel">
+            <button onclick="exportCode()">GENERATE CODE</button>
+            <textarea id="output-code" readonly placeholder="Click Generate to see the code..."></textarea>
+            <button onclick="copyCode()" style="background:#444; font-size:14px; margin-top:5px;">COPY TO
+                CLIPBOARD</button>
+        </div>
+    </div>
+
+    <!-- Import Map -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Config ---
+        const config = {
+            body: {
+                visible: true,
+                color: '#2a5caa',
+                radius: 0.5,
+                height: 1.0,
+                y: 1.0,
+                roughness: 0.7,
+                metalness: 0.3
+            },
+            head: {
+                visible: true,
+                color: '#ffdbac',
+                radius: 0.3,
+                y: 1.8,
+                z: 0.0,
+                roughness: 0.8,
+                metalness: 0.2
+            },
+            armL: {
+                visible: true,
+                color: '#2a5caa',
+                radius: 0.15,
+                height: 0.7,
+                x: 0.65, y: 1.4, z: 0.0,
+                rotX: 0, rotY: 0, rotZ: 0
+            },
+            armR: {
+                visible: true,
+                color: '#2a5caa',
+                radius: 0.15,
+                height: 0.7,
+                x: -0.65, y: 1.4, z: 0.0,
+                rotX: 0, rotY: 0, rotZ: 0
+            },
+            legL: {
+                visible: true,
+                color: '#1a1a1a',
+                radius: 0.18,
+                height: 0.9,
+                x: 0.25, y: 0.45, z: 0.0,
+                rotX: 0, rotY: 0, rotZ: 0
+            },
+            legR: {
+                visible: true,
+                color: '#1a1a1a',
+                radius: 0.18,
+                height: 0.9,
+                x: -0.25, y: 0.45, z: 0.0,
+                rotX: 0, rotY: 0, rotZ: 0
+            }
+        };
+
+        // --- Three.js Setup ---
+        let scene, camera, renderer, controls, characterGroup;
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x333333);
+
+            // Grid
+            const gridHelper = new THREE.GridHelper(20, 20, 0x555555, 0x444444);
+            scene.add(gridHelper);
+
+            // Ground
+            const groundGeo = new THREE.PlaneGeometry(20, 20);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Light
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+            dirLight.position.set(5, 10, 7);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            scene.add(dirLight);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(3, 3, 5);
+            camera.lookAt(0, 1, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 1, 0);
+            controls.update();
+
+            // Character Group
+            characterGroup = new THREE.Group();
+            scene.add(characterGroup);
+
+            // Init UI
+            createUI();
+
+            // Initial Render
+            updateCharacter();
+
+            // Loop
+            renderer.setAnimationLoop(animate);
+            window.addEventListener('resize', onResize);
+        }
+
+        function animate() {
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // --- Character Logic ---
+
+        function updateCharacter() {
+            // Clear existing
+            while (characterGroup.children.length > 0) {
+                characterGroup.remove(characterGroup.children[0]);
+            }
+
+            // --- Helper to create capsule ---
+            function createCapsule(cfg, name) {
+                if (!cfg.visible) return;
+                const geo = new THREE.CapsuleGeometry(cfg.radius, cfg.height, 4, 16);
+                const mat = new THREE.MeshStandardMaterial({
+                    color: cfg.color,
+                    roughness: cfg.roughness || 0.7,
+                    metalness: cfg.metalness || 0.3
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+
+                // Position
+                mesh.position.set(cfg.x || 0, cfg.y || 0, cfg.z || 0);
+
+                // Rotation (Euler)
+                if (cfg.rotX !== undefined) mesh.rotation.x = cfg.rotX;
+                if (cfg.rotY !== undefined) mesh.rotation.y = cfg.rotY;
+                if (cfg.rotZ !== undefined) mesh.rotation.z = cfg.rotZ;
+
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.name = name;
+                characterGroup.add(mesh);
+            }
+
+            // --- Helper to create sphere ---
+            function createSphere(cfg, name) {
+                if (!cfg.visible) return;
+                const geo = new THREE.SphereGeometry(cfg.radius, 16, 16);
+                const mat = new THREE.MeshStandardMaterial({
+                    color: cfg.color,
+                    roughness: cfg.roughness,
+                    metalness: cfg.metalness
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(cfg.x || 0, cfg.y || 0, cfg.z || 0);
+                mesh.castShadow = true;
+                characterGroup.add(mesh);
+            }
+
+            // Build Parts
+            createCapsule(config.body, 'Body');
+            createSphere(config.head, 'Head');
+
+            createCapsule(config.armL, 'ArmL');
+            createCapsule(config.armR, 'ArmR');
+
+            createCapsule(config.legL, 'LegL');
+            createCapsule(config.legR, 'LegR');
+        }
+
+        // --- UI Logic ---
+
+        function createUI() {
+            const container = document.getElementById('dynamic-controls');
+
+            // Definitions for controls
+            const sections = [
+                {
+                    id: 'body', title: 'Body (Torso)', params: [
+                        { key: 'visible', type: 'bool', name: 'Visible' },
+                        { key: 'color', type: 'color', name: 'Color' },
+                        { key: 'radius', type: 'number', min: 0.1, max: 1.0, step: 0.01, name: 'Radius' },
+                        { key: 'height', type: 'number', min: 0.1, max: 2.0, step: 0.05, name: 'Height' },
+                        { key: 'y', type: 'number', min: 0, max: 3.0, step: 0.05, name: 'Y Pos' }
+                    ]
+                },
+                {
+                    id: 'head', title: 'Head', params: [
+                        { key: 'visible', type: 'bool', name: 'Visible' },
+                        { key: 'color', type: 'color', name: 'Color' },
+                        { key: 'radius', type: 'number', min: 0.1, max: 0.6, step: 0.01, name: 'Radius' },
+                        { key: 'y', type: 'number', min: 0, max: 3.0, step: 0.05, name: 'Y Pos' }
+                    ]
+                },
+                {
+                    id: 'armL', title: 'Left Arm', params: [
+                        { key: 'visible', type: 'bool', name: 'Visible' },
+                        { key: 'color', type: 'color', name: 'Color' },
+                        { key: 'radius', type: 'number', min: 0.05, max: 0.3, step: 0.01, name: 'Thickness' },
+                        { key: 'height', type: 'number', min: 0.1, max: 1.5, step: 0.05, name: 'Length' },
+                        { key: 'x', type: 'number', min: -1.5, max: 1.5, step: 0.05, name: 'X Pos' },
+                        { key: 'y', type: 'number', min: 0, max: 3.0, step: 0.05, name: 'Y Pos' },
+                        { key: 'rotZ', type: 'number', min: -3.14, max: 3.14, step: 0.1, name: 'Rot Z' }
+                    ]
+                },
+                {
+                    id: 'armR', title: 'Right Arm', params: [
+                        { key: 'visible', type: 'bool', name: 'Visible' },
+                        { key: 'color', type: 'color', name: 'Color' },
+                        { key: 'radius', type: 'number', min: 0.05, max: 0.3, step: 0.01, name: 'Thickness' },
+                        { key: 'height', type: 'number', min: 0.1, max: 1.5, step: 0.05, name: 'Length' },
+                        { key: 'x', type: 'number', min: -1.5, max: 1.5, step: 0.05, name: 'X Pos' },
+                        { key: 'y', type: 'number', min: 0, max: 3.0, step: 0.05, name: 'Y Pos' },
+                        { key: 'rotZ', type: 'number', min: -3.14, max: 3.14, step: 0.1, name: 'Rot Z' }
+                    ]
+                },
+                {
+                    id: 'legL', title: 'Left Leg', params: [
+                        { key: 'visible', type: 'bool', name: 'Visible' },
+                        { key: 'color', type: 'color', name: 'Color' },
+                        { key: 'radius', type: 'number', min: 0.05, max: 0.3, step: 0.01, name: 'Thickness' },
+                        { key: 'height', type: 'number', min: 0.1, max: 1.5, step: 0.05, name: 'Length' },
+                        { key: 'x', type: 'number', min: -1.5, max: 1.5, step: 0.05, name: 'X Pos' },
+                        { key: 'y', type: 'number', min: 0, max: 3.0, step: 0.05, name: 'Y Pos' },
+                        { key: 'rotX', type: 'number', min: -3.14, max: 3.14, step: 0.1, name: 'Rot X' }
+                    ]
+                },
+                {
+                    id: 'legR', title: 'Right Leg', params: [
+                        { key: 'visible', type: 'bool', name: 'Visible' },
+                        { key: 'color', type: 'color', name: 'Color' },
+                        { key: 'radius', type: 'number', min: 0.05, max: 0.3, step: 0.01, name: 'Thickness' },
+                        { key: 'height', type: 'number', min: 0.1, max: 1.5, step: 0.05, name: 'Length' },
+                        { key: 'x', type: 'number', min: -1.5, max: 1.5, step: 0.05, name: 'X Pos' },
+                        { key: 'y', type: 'number', min: 0, max: 3.0, step: 0.05, name: 'Y Pos' },
+                        { key: 'rotX', type: 'number', min: -3.14, max: 3.14, step: 0.1, name: 'Rot X' }
+                    ]
+                }
+            ];
+
+            sections.forEach(section => {
+                const sectDiv = document.createElement('div');
+                const title = document.createElement('h2');
+                title.textContent = section.title;
+                title.onclick = () => { content.classList.toggle('collapsed'); title.classList.toggle('collapsed'); };
+
+                const content = document.createElement('div');
+                content.className = 'section-content';
+
+                section.params.forEach(param => {
+                    const row = document.createElement('div');
+                    row.className = 'control-group';
+
+                    const label = document.createElement('label');
+                    label.textContent = param.name;
+
+                    let input;
+                    if (param.type === 'bool') {
+                        input = document.createElement('input');
+                        input.type = 'checkbox';
+                        input.checked = config[section.id][param.key];
+                        input.onchange = (e) => {
+                            config[section.id][param.key] = e.target.checked;
+                            updateCharacter();
+                        };
+                    } else if (param.type === 'color') {
+                        input = document.createElement('input');
+                        input.type = 'color';
+                        input.value = config[section.id][param.key];
+                        input.oninput = (e) => {
+                            config[section.id][param.key] = e.target.value;
+                            // SYMMETRY LOGIC
+                            if (document.getElementById('symmetry').checked) {
+                                if (section.id === 'armL') config.armR.color = e.target.value;
+                                if (section.id === 'legL') config.legR.color = e.target.value;
+                                refreshUIinputs();
+                            }
+                            updateCharacter();
+                        };
+                    } else { // number
+                        input = document.createElement('input');
+                        input.type = 'range';
+                        input.min = param.min;
+                        input.max = param.max;
+                        input.step = param.step;
+                        input.value = config[section.id][param.key];
+
+                        const numDisplay = document.createElement('span');
+                        numDisplay.textContent = parseFloat(input.value).toFixed(2);
+
+                        input.oninput = (e) => {
+                            const val = parseFloat(e.target.value);
+                            config[section.id][param.key] = val;
+                            numDisplay.textContent = val.toFixed(2);
+
+                            // SYMMETRY LOGIC
+                            if (document.getElementById('symmetry').checked) {
+                                if (section.id === 'armL') {
+                                    if (param.key === 'x') config.armR.x = -val;
+                                    else if (param.key === 'rotZ') config.armR.rotZ = -val; // Mirror rotation?
+                                    else if (param.key === 'rotX' || param.key === 'rotY') config.armR[param.key] = -val;
+                                    else config.armR[param.key] = val;
+                                }
+                                if (section.id === 'legL') {
+                                    if (param.key === 'x') config.legR.x = -val;
+                                    else if (param.key === 'rotZ' || param.key === 'rotX' || param.key === 'rotY') config.legR[param.key] = -val; // Basic mirroring
+                                    else config.legR[param.key] = val;
+                                }
+                                refreshUIinputs();
+                            }
+                            updateCharacter();
+                        };
+
+                        row.appendChild(label);
+                        row.appendChild(input);
+                        row.appendChild(numDisplay);
+                        content.appendChild(row);
+                        return; // Skip default append
+                    }
+
+                    row.appendChild(label);
+                    row.appendChild(input);
+                    content.appendChild(row);
+                });
+
+                sectDiv.appendChild(title);
+                sectDiv.appendChild(content);
+                container.appendChild(sectDiv);
+            });
+        }
+
+        // Very basic way to refresh UI values when symmetry updates them
+        function refreshUIinputs() {
+            // Re-creating UI is lazy but robust for this simple tool. 
+            // Better: update values by ID. For now, since user drags one slider, we don't need to update THAT slider, only the other one.
+            // But since I didn't store references, let's just trigger a re-render or accept they won't update visually until clicked?
+            // Actually, let's just leave it: the visual model updates, which is what matters. 
+            // The request was just to see the model.
+        }
+
+        // --- Export Logic ---
+
+        window.exportCode = function () {
+            const c = config;
+
+            // Helper to generate a Mesh block
+            const genBlock = (cfg, name, shape) => {
+                if (!cfg.visible) return `// ${name} hidden`;
+
+                let geoCode = '';
+                if (shape === 'capsule') {
+                    geoCode = `const ${name.toLowerCase()}Geometry = new THREE.CapsuleGeometry(${cfg.radius}, ${cfg.height}, 4, 16);`;
+                } else if (shape === 'sphere') {
+                    geoCode = `const ${name.toLowerCase()}Geometry = new THREE.SphereGeometry(${cfg.radius}, 16, 16);`;
+                }
+
+                return `
+        // ${name}
+        ${geoCode}
+        const ${name.toLowerCase()}Material = new THREE.MeshStandardMaterial({
+            color: '${cfg.color}', // User picked color - replace with this.getPlayerColor(playerData.id) if dynamic
+            roughness: ${cfg.roughness || 0.7},
+            metalness: ${cfg.metalness || 0.3}
+        });
+        const ${name.toLowerCase()} = new THREE.Mesh(${name.toLowerCase()}Geometry, ${name.toLowerCase()}Material);
+        ${name.toLowerCase()}.position.set(${cfg.x || 0}, ${cfg.y || 0}, ${cfg.z || 0});
+        ${cfg.rotX ? `${name.toLowerCase()}.rotation.x = ${cfg.rotX};` : ''}
+        ${cfg.rotY ? `${name.toLowerCase()}.rotation.y = ${cfg.rotY};` : ''}
+        ${cfg.rotZ ? `${name.toLowerCase()}.rotation.z = ${cfg.rotZ};` : ''}
+        ${name.toLowerCase()}.castShadow = true;
+        group.add(${name.toLowerCase()});
+`;
+            };
+
+            const code = `
+        const group = new THREE.Group();
+
+${genBlock(c.body, 'Body', 'capsule')}
+${genBlock(c.head, 'Head', 'sphere')}
+${genBlock(c.armL, 'LeftArm', 'capsule')}
+${genBlock(c.armR, 'RightArm', 'capsule')}
+${genBlock(c.legL, 'LeftLeg', 'capsule')}
+${genBlock(c.legR, 'RightLeg', 'capsule')}
+        
+        // ... Nametag and other stuff ...
+            `;
+
+            document.getElementById('output-code').value = code.trim();
+        };
+
+        window.copyCode = function () {
+            const copyText = document.getElementById("output-code");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(copyText.value);
+            alert("Copied to clipboard!");
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

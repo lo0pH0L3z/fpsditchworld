@@ -1,15 +1,17 @@
-# Ignore system files
+# Dependencies
+node_modules/
+
+# Large binary files
+test.mp4
+test.hdr
+
+# Temp files
+temp-restore/
+
+# OS files
 .DS_Store
 Thumbs.db
 
-# Ignore editor files
+# IDE
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# Ignore logs
-*.log
-
-# Node modules if we ever add build tools
-node_modules/

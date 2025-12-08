@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PS5 FPS World Editor</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <style>
+        body { margin: 0; overflow: hidden; background: #222; color: #eee; font-family: sans-serif; }
+        #editor-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        #toolbar {
+            position: absolute; top: 10px; left: 10px;
+            background: rgba(0,0,0,0.8); padding: 10px; border-radius: 4px;
+            pointer-events: auto; display: flex; gap: 10px;
+        }
+        button {
+            background: #444; border: 1px solid #666; color: white; padding: 5px 10px; cursor: pointer;
+        }
+        button:hover { background: #555; }
+        button.active { background: #0088ff; border-color: #00aaff; }
+        
+        #properties-panel {
+            position: absolute; top: 10px; right: 10px; width: 300px;
+            background: rgba(0,0,0,0.8); padding: 15px; border-radius: 4px;
+            pointer-events: auto;
+        }
+        .prop-row { display: flex; justify-content: space-between; margin-bottom: 5px; align-items: center; }
+        input[type="number"] { width: 60px; background: #333; border: 1px solid #555; color: white; padding: 2px; }
+        input[type="text"] { width: 100%; background: #333; border: 1px solid #555; color: white; padding: 2px; margin-bottom: 10px; }
+        h3 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 5px; }
+
+        #loading-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; color: #fff; display: flex; justify-content: center; align-items: center;
+            font-size: 24px; z-index: 999;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-overlay">Loading World Editor...</div>
+
+    <!-- UI Layer -->
+    <div id="editor-ui">
+        <div id="toolbar">
+            <button id="btn-select" class="active">Select (Q)</button>
+            <button id="btn-translate">Move (W)</button>
+            <button id="btn-rotate">Rotate (E)</button>
+            <button id="btn-scale">Scale (R)</button>
+            <div style="width: 1px; background: #666; margin: 0 5px;"></div>
+            <button id="btn-reset">Reset View</button>
+        </div>
+
+        <div id="properties-panel" style="display: none;">
+            <h3>Selected Object</h3>
+            <input type="text" id="obj-name" readonly>
+            
+            <div class="prop-group">
+                <h4>Position</h4>
+                <div class="prop-row">
+                    <label>X</label> <input type="number" id="pos-x" step="0.1">
+                    <label>Y</label> <input type="number" id="pos-y" step="0.1">
+                    <label>Z</label> <input type="number" id="pos-z" step="0.1">
+                </div>
+            </div>
+
+            <div class="prop-group">
+                <h4>Rotation (Degrees)</h4>
+                <div class="prop-row">
+                    <label>X</label> <input type="number" id="rot-x" step="1">
+                    <label>Y</label> <input type="number" id="rot-y" step="1">
+                    <label>Z</label> <input type="number" id="rot-z" step="1">
+                </div>
+            </div>
+
+            <div class="prop-group">
+                <h4>Scale</h4>
+                <div class="prop-row">
+                    <label>X</label> <input type="number" id="scale-x" step="0.1">
+                    <label>Y</label> <input type="number" id="scale-y" step="0.1">
+                    <label>Z</label> <input type="number" id="scale-z" step="0.1">
+                </div>
+            </div>
+            
+            <hr style="border-color: #444;">
+            <div class="prop-group">
+                <h4>Code Snippet</h4>
+                <textarea id="code-snippet" style="width: 100%; height: 60px; background: #111; color: #0f0; border: none; font-family: monospace; font-size: 11px;"></textarea>
+                <button id="btn-copy-code" style="width: 100%; margin-top: 5px;">Copy Code</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Map (Same as index.html) -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module" src="js/tools/world-editor.js"></script>
+</body>
+</html>

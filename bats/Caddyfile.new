@@ -1,0 +1,13 @@
+fps.ditchworld.com {
+    reverse_proxy host.docker.internal:3000 {
+        # WebSocket support - critical for Socket.io
+        header_up Upgrade {http.request.header.Upgrade}
+        header_up Connection {http.request.header.Connection}
+        
+        # Preserve original headers for proper client tracking
+        header_up Host {http.request.host}
+        header_up X-Real-IP {http.request.remote.host}
+        header_up X-Forwarded-For {http.request.header.X-Forwarded-For}
+        header_up X-Forwarded-Proto {http.request.scheme}
+    }
+}

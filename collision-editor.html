@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collision Editor</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #1a1a2e;
+            font-family: 'Segoe UI', sans-serif;
+            color: #eee;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: calc(100% - 380px);
+            height: 100%;
+        }
+
+        #controls {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 380px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            overflow-y: auto;
+            padding: 20px;
+            border-left: 2px solid #333;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            margin: 0 0 5px 0;
+            font-size: 24px;
+            color: #fff;
+            background: linear-gradient(90deg, #ff6b6b, #feca57);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 15px;
+        }
+
+        h2 {
+            font-size: 14px;
+            margin: 20px 0 10px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+
+        .control-group label {
+            flex: 1;
+            color: #aaa;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px;
+            background: #2a2a3e;
+            border: 1px solid #444;
+            color: #fff;
+            font-size: 14px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        select:hover {
+            border-color: #666;
+        }
+
+        input[type="range"] {
+            width: 120px;
+            margin: 0 10px;
+            accent-color: #ff6b6b;
+        }
+
+        input[type="number"] {
+            width: 55px;
+            background: #2a2a3e;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 4px 6px;
+            border-radius: 3px;
+            text-align: center;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            background: #2a2a3e;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 8px;
+            border-radius: 3px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button.secondary {
+            background: #333;
+            font-size: 12px;
+            padding: 8px;
+        }
+
+        button.secondary:hover {
+            background: #444;
+            box-shadow: none;
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+        }
+
+        button.add-btn {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+        }
+
+        .collider-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+
+        .collider-item {
+            background: #2a2a3e;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .collider-item.selected {
+            border-color: #ff6b6b;
+            box-shadow: 0 0 10px rgba(255, 107, 107, 0.3);
+        }
+
+        .collider-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .collider-type {
+            font-weight: bold;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .collider-type .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .delete-btn,
+        .action-btn {
+            background: #ff4444;
+            border: none;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            margin: 0;
+        }
+
+        .delete-btn:hover,
+        .action-btn:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .action-btn {
+            background: #555;
+            font-size: 11px;
+        }
+
+        .action-btn:hover {
+            background: #777;
+        }
+
+        .action-btn.duplicate {
+            background: #4a6fa5;
+        }
+
+        .action-btn.mirror {
+            background: #7b5ea7;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .tool-buttons {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .tool-buttons button {
+            flex: 1;
+            min-width: 80px;
+            padding: 8px 6px;
+            font-size: 11px;
+        }
+
+        #import-panel {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #333;
+        }
+
+        #import-panel textarea {
+            height: 100px;
+            margin-bottom: 8px;
+        }
+
+        .collider-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+
+        .collider-controls .control-mini {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .collider-controls .control-mini label {
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .collider-controls .control-mini input {
+            width: 100%;
+        }
+
+        #export-panel {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #333;
+        }
+
+        textarea {
+            width: 100%;
+            height: 180px;
+            background: #111;
+            color: #4ade80;
+            border: 1px solid #333;
+            font-family: 'Consolas', monospace;
+            font-size: 11px;
+            padding: 10px;
+            resize: vertical;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .color-buttons {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+        }
+
+        .color-btn {
+            width: 30px;
+            height: 30px;
+            border: 2px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+        }
+
+        .color-btn:hover {
+            transform: scale(1.1);
+            box-shadow: none;
+        }
+
+        .color-btn.active {
+            border-color: #fff;
+        }
+
+        .info-bar {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            font-size: 11px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="canvas-container"></div>
+    <div id="controls">
+        <h1>🎯 Collision Editor</h1>
+        <div class="subtitle">Visually edit collision shapes for game assets</div>
+
+        <h2>📦 Select Asset</h2>
+        <select id="asset-select">
+            <option value="">-- Choose an asset --</option>
+            <option value="extras/tower/wooden watch tower2.fbx">Watch Tower (wooden)</option>
+            <option value="extras/tower/tower.fbx">Radio Tower</option>
+            <option value="extras/fence/fence.fbx">Fence</option>
+            <option value="assets/trees/tree1/Tree.fbx">Tree</option>
+        </select>
+
+        <h2>🧊 Colliders</h2>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #00ff00;"></div> Floor
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #ffff00;"></div> Stairs
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #ff0000;"></div> Wall/Pole
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #00ffff;"></div> Other
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+            <button class="add-btn" onclick="addCollider('box')">+ Add Box</button>
+            <button class="add-btn" onclick="addCollider('cylinder')">+ Add Cylinder</button>
+        </div>
+
+        <div class="tool-buttons">
+            <button class="secondary" onclick="mirrorAllX()" title="Mirror all colliders across X axis">↔ Mirror
+                X</button>
+            <button class="secondary" onclick="mirrorAllZ()" title="Mirror all colliders across Z axis">↕ Mirror
+                Z</button>
+            <button class="secondary danger" onclick="clearAllCollidersConfirm()">🗑 Clear All</button>
+        </div>
+
+        <div class="collider-list" id="collider-list"></div>
+
+        <div id="import-panel">
+            <h2>📥 Import Code</h2>
+            <textarea id="import-code"
+                placeholder="Paste existing collision code here to continue editing..."></textarea>
+            <button class="secondary" onclick="importCode()">IMPORT COLLISIONS</button>
+        </div>
+
+        <div id="export-panel">
+            <button onclick="exportCode()">📋 GENERATE CODE</button>
+            <textarea id="output-code" readonly
+                placeholder="Click Generate to see the collision config code..."></textarea>
+            <button class="secondary" onclick="copyCode()">COPY TO CLIPBOARD</button>
+        </div>
+    </div>
+
+    <div class="info-bar" id="info-bar">
+        Load an asset to begin editing collisions
+    </div>
+
+    <!-- Import Map -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
+        // --- State ---
+        let scene, camera, renderer, controls;
+        let loadedAsset = null;
+        let colliders = [];
+        let selectedColliderId = null;
+        let colliderIdCounter = 0;
+
+        // Color presets
+        const COLORS = {
+            floor: 0x00ff00,
+            stairs: 0xffff00,
+            wall: 0xff0000,
+            other: 0x00ffff
+        };
+
+        // --- Init ---
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a2e);
+
+            // Grid
+            const gridHelper = new THREE.GridHelper(50, 50, 0x333355, 0x222244);
+            scene.add(gridHelper);
+
+            // Axes helper
+            const axesHelper = new THREE.AxesHelper(10);
+            scene.add(axesHelper);
+
+            // Ground plane
+            const groundGeo = new THREE.PlaneGeometry(100, 100);
+            const groundMat = new THREE.MeshStandardMaterial({
+                color: 0x1a1a2e,
+                roughness: 0.9,
+                metalness: 0.1
+            });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.01;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+            dirLight.position.set(10, 20, 10);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            const fillLight = new THREE.DirectionalLight(0x8888ff, 0.3);
+            fillLight.position.set(-10, 5, -10);
+            scene.add(fillLight);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 500);
+            camera.position.set(15, 15, 15);
+            camera.lookAt(0, 5, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 5, 0);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.update();
+
+            // Event listeners
+            document.getElementById('asset-select').addEventListener('change', onAssetChange);
+            window.addEventListener('resize', onResize);
+
+            // Animation loop
+            renderer.setAnimationLoop(animate);
+        }
+
+        function animate() {
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // --- Asset Loading ---
+        async function onAssetChange(e) {
+            const path = e.target.value;
+            if (!path) return;
+
+            updateInfoBar('Loading asset...');
+
+            // Clear previous asset
+            if (loadedAsset) {
+                scene.remove(loadedAsset);
+                loadedAsset = null;
+            }
+
+            // Clear colliders
+            clearAllColliders();
+
+            const fbxLoader = new FBXLoader();
+            const textureLoader = new THREE.TextureLoader();
+
+            try {
+                // Determine texture path based on asset
+                let texturePath = null;
+                if (path.includes('wooden watch tower')) {
+                    texturePath = 'extras/tower/textures/Wood_Tower_Col.jpg';
+                } else if (path.includes('tower.fbx')) {
+                    texturePath = 'extras/tower/TowerTexture.png';
+                }
+
+                // Load texture if available
+                let texture = null;
+                if (texturePath) {
+                    texture = await new Promise((resolve) => {
+                        textureLoader.load(texturePath, resolve, undefined, () => resolve(null));
+                    });
+                    if (texture) texture.colorSpace = THREE.SRGBColorSpace;
+                }
+
+                // Load FBX
+                const object = await new Promise((resolve, reject) => {
+                    fbxLoader.load(path, resolve, undefined, reject);
+                });
+
+                // Apply scale
+                object.scale.setScalar(0.05);
+
+                // Apply textures
+                object.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                        if (texture && child.material) {
+                            const applyTex = (mat) => {
+                                mat.map = texture;
+                                mat.side = THREE.DoubleSide;
+                                mat.needsUpdate = true;
+                            };
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(applyTex);
+                            } else {
+                                applyTex(child.material);
+                            }
+                        }
+                    }
+                });
+
+                // Get bounding box
+                object.updateMatrixWorld(true);
+                const box = new THREE.Box3().setFromObject(object);
+                const size = new THREE.Vector3();
+                const center = new THREE.Vector3();
+                box.getSize(size);
+                box.getCenter(center);
+
+                // Center asset at origin
+                object.position.set(-center.x, -box.min.y, -center.z);
+
+                loadedAsset = object;
+                scene.add(loadedAsset);
+
+                // Frame the camera
+                const maxDim = Math.max(size.x, size.y, size.z);
+                camera.position.set(maxDim * 1.2, maxDim * 1.2, maxDim * 1.2);
+                controls.target.set(0, size.y / 2, 0);
+                controls.update();
+
+                updateInfoBar(`Loaded: ${path.split('/').pop()} | Size: ${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)}`);
+
+            } catch (err) {
+                console.error('Failed to load asset:', err);
+                updateInfoBar('Error loading asset: ' + err.message);
+            }
+        }
+
+        function updateInfoBar(text) {
+            document.getElementById('info-bar').textContent = text;
+        }
+
+        // --- Collider Management ---
+        function clearAllColliders() {
+            colliders.forEach(c => {
+                scene.remove(c.mesh);
+                scene.remove(c.wireframe);
+            });
+            colliders = [];
+            selectedColliderId = null;
+            renderColliderList();
+        }
+
+        window.addCollider = function (type) {
+            const id = ++colliderIdCounter;
+
+            const collider = {
+                id,
+                type,
+                name: `${type}_${id}`,
+                offset: { x: 0, y: 0, z: 0 },
+                size: type === 'box'
+                    ? { width: 5, height: 2, depth: 5 }
+                    : { radius: 1, height: 10 },
+                color: COLORS.floor,
+                mesh: null,
+                wireframe: null
+            };
+
+            colliders.push(collider);
+            createColliderMesh(collider);
+            selectCollider(id);
+            renderColliderList();
+        };
+
+        function createColliderMesh(collider) {
+            // Remove existing mesh
+            if (collider.mesh) scene.remove(collider.mesh);
+            if (collider.wireframe) scene.remove(collider.wireframe);
+
+            let geometry;
+            if (collider.type === 'box') {
+                geometry = new THREE.BoxGeometry(
+                    collider.size.width,
+                    collider.size.height,
+                    collider.size.depth
+                );
+            } else {
+                geometry = new THREE.CylinderGeometry(
+                    collider.size.radius,
+                    collider.size.radius,
+                    collider.size.height,
+                    16
+                );
+            }
+
+            // Solid mesh
+            const material = new THREE.MeshBasicMaterial({
+                color: collider.color,
+                transparent: true,
+                opacity: 0.4,
+                depthTest: false,
+                depthWrite: false
+            });
+            collider.mesh = new THREE.Mesh(geometry, material);
+            collider.mesh.renderOrder = 999;
+
+            // Position
+            collider.mesh.position.set(
+                collider.offset.x,
+                collider.offset.y + collider.size.height / 2,
+                collider.offset.z
+            );
+
+            scene.add(collider.mesh);
+
+            // Wireframe
+            const wireMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                wireframe: true,
+                depthTest: false,
+                depthWrite: false
+            });
+            collider.wireframe = new THREE.Mesh(geometry.clone(), wireMat);
+            collider.wireframe.position.copy(collider.mesh.position);
+            collider.wireframe.renderOrder = 1000;
+            scene.add(collider.wireframe);
+        }
+
+        function updateColliderMesh(collider) {
+            createColliderMesh(collider);
+        }
+
+        function selectCollider(id) {
+            selectedColliderId = id;
+            renderColliderList();
+        }
+
+        window.deleteCollider = function (id) {
+            const index = colliders.findIndex(c => c.id === id);
+            if (index !== -1) {
+                const collider = colliders[index];
+                scene.remove(collider.mesh);
+                scene.remove(collider.wireframe);
+                colliders.splice(index, 1);
+                if (selectedColliderId === id) selectedColliderId = null;
+                renderColliderList();
+            }
+        };
+
+        window.duplicateCollider = function (id) {
+            const original = colliders.find(c => c.id === id);
+            if (!original) return;
+
+            const newId = ++colliderIdCounter;
+            const newCollider = {
+                id: newId,
+                type: original.type,
+                name: `${original.name}_copy`,
+                offset: { ...original.offset },
+                size: { ...original.size },
+                color: original.color,
+                mesh: null,
+                wireframe: null
+            };
+
+            colliders.push(newCollider);
+            createColliderMesh(newCollider);
+            selectCollider(newId);
+            renderColliderList();
+            updateInfoBar(`Duplicated: ${original.name}`);
+        };
+
+        window.mirrorCollider = function (id, axis) {
+            const original = colliders.find(c => c.id === id);
+            if (!original) return;
+
+            const newId = ++colliderIdCounter;
+            const newCollider = {
+                id: newId,
+                type: original.type,
+                name: `${original.name}_mirror${axis.toUpperCase()}`,
+                offset: {
+                    x: axis === 'x' ? -original.offset.x : original.offset.x,
+                    y: original.offset.y,
+                    z: axis === 'z' ? -original.offset.z : original.offset.z
+                },
+                size: { ...original.size },
+                color: original.color,
+                mesh: null,
+                wireframe: null
+            };
+
+            colliders.push(newCollider);
+            createColliderMesh(newCollider);
+            selectCollider(newId);
+            renderColliderList();
+            updateInfoBar(`Mirrored ${original.name} on ${axis.toUpperCase()} axis`);
+        };
+
+        window.mirrorAllX = function () {
+            const currentColliders = [...colliders];
+            currentColliders.forEach(c => {
+                if (c.offset.x !== 0) {
+                    mirrorCollider(c.id, 'x');
+                }
+            });
+            updateInfoBar(`Mirrored ${currentColliders.filter(c => c.offset.x !== 0).length} colliders on X axis`);
+        };
+
+        window.mirrorAllZ = function () {
+            const currentColliders = [...colliders];
+            currentColliders.forEach(c => {
+                if (c.offset.z !== 0) {
+                    mirrorCollider(c.id, 'z');
+                }
+            });
+            updateInfoBar(`Mirrored ${currentColliders.filter(c => c.offset.z !== 0).length} colliders on Z axis`);
+        };
+
+        window.clearAllCollidersConfirm = function () {
+            if (colliders.length === 0) return;
+            if (confirm(`Delete all ${colliders.length} colliders?`)) {
+                clearAllColliders();
+                updateInfoBar('All colliders cleared');
+            }
+        };
+
+        window.updateColliderValue = function (id, field, value) {
+            const collider = colliders.find(c => c.id === id);
+            if (!collider) return;
+
+            const numValue = parseFloat(value);
+
+            if (field.startsWith('offset.')) {
+                const key = field.split('.')[1];
+                collider.offset[key] = numValue;
+            } else if (field.startsWith('size.')) {
+                const key = field.split('.')[1];
+                collider.size[key] = numValue;
+            } else if (field === 'name') {
+                collider.name = value;
+            }
+
+            updateColliderMesh(collider);
+        };
+
+        window.setColliderColor = function (id, colorHex) {
+            const collider = colliders.find(c => c.id === id);
+            if (!collider) return;
+            collider.color = colorHex;
+            updateColliderMesh(collider);
+            renderColliderList();
+        };
+
+        // --- Import Code ---
+        window.importCode = function () {
+            const code = document.getElementById('import-code').value.trim();
+            if (!code) {
+                updateInfoBar('No code to import');
+                return;
+            }
+
+            try {
+                // Extract the array content from the code
+                const arrayMatch = code.match(/\[([\s\S]*?)\];?\s*$/);
+                if (!arrayMatch) {
+                    throw new Error('Could not find collision array in code');
+                }
+
+                // Parse the array - convert to valid JSON
+                let arrayContent = '[' + arrayMatch[1] + ']';
+
+                // Fix JS object syntax to JSON
+                arrayContent = arrayContent
+                    .replace(/([{,]\s*)(\w+)\s*:/g, '$1"$2":')  // Quote keys
+                    .replace(/'/g, '"')  // Single to double quotes
+                    .replace(/0x([0-9a-fA-F]+)/g, (match, hex) => parseInt(hex, 16))  // Hex to decimal
+                    .replace(/,\s*([\]}])/g, '$1');  // Remove trailing commas
+
+                const parsed = JSON.parse(arrayContent);
+
+                // Clear existing and import
+                clearAllColliders();
+
+                parsed.forEach(item => {
+                    const id = ++colliderIdCounter;
+                    const collider = {
+                        id,
+                        type: item.type,
+                        name: item.name || `${item.type}_${id}`,
+                        offset: item.offset || { x: 0, y: 0, z: 0 },
+                        size: item.size || (item.type === 'box'
+                            ? { width: 5, height: 2, depth: 5 }
+                            : { radius: 1, height: 10 }),
+                        color: item.color || COLORS.floor,
+                        mesh: null,
+                        wireframe: null
+                    };
+                    colliders.push(collider);
+                    createColliderMesh(collider);
+                });
+
+                renderColliderList();
+                updateInfoBar(`Imported ${parsed.length} colliders`);
+                document.getElementById('import-code').value = '';
+
+            } catch (err) {
+                console.error('Import error:', err);
+                updateInfoBar('Import failed: ' + err.message);
+            }
+        };
+
+        // --- UI Rendering ---
+        function renderColliderList() {
+            const container = document.getElementById('collider-list');
+            container.innerHTML = '';
+
+            colliders.forEach(collider => {
+                const item = document.createElement('div');
+                item.className = 'collider-item' + (collider.id === selectedColliderId ? ' selected' : '');
+                item.onclick = () => selectCollider(collider.id);
+
+                const colorHex = '#' + collider.color.toString(16).padStart(6, '0');
+
+                let sizeControls = '';
+                if (collider.type === 'box') {
+                    sizeControls = `
+                        <div class="control-mini">
+                            <label>Width</label>
+                            <input type="number" step="0.5" value="${collider.size.width}" 
+                                onchange="updateColliderValue(${collider.id}, 'size.width', this.value)">
+                        </div>
+                        <div class="control-mini">
+                            <label>Height</label>
+                            <input type="number" step="0.5" value="${collider.size.height}" 
+                                onchange="updateColliderValue(${collider.id}, 'size.height', this.value)">
+                        </div>
+                        <div class="control-mini">
+                            <label>Depth</label>
+                            <input type="number" step="0.5" value="${collider.size.depth}" 
+                                onchange="updateColliderValue(${collider.id}, 'size.depth', this.value)">
+                        </div>
+                    `;
+                } else {
+                    sizeControls = `
+                        <div class="control-mini">
+                            <label>Radius</label>
+                            <input type="number" step="0.1" value="${collider.size.radius}" 
+                                onchange="updateColliderValue(${collider.id}, 'size.radius', this.value)">
+                        </div>
+                        <div class="control-mini">
+                            <label>Height</label>
+                            <input type="number" step="0.5" value="${collider.size.height}" 
+                                onchange="updateColliderValue(${collider.id}, 'size.height', this.value)">
+                        </div>
+                        <div class="control-mini"></div>
+                    `;
+                }
+
+                item.innerHTML = `
+                    <div class="collider-item-header">
+                        <div class="collider-type">
+                            <div class="dot" style="background: ${colorHex};"></div>
+                            <input type="text" value="${collider.name}" style="width: 80px; padding: 2px 4px;"
+                                onclick="event.stopPropagation()"
+                                onchange="updateColliderValue(${collider.id}, 'name', this.value)">
+                        </div>
+                        <div class="item-actions">
+                            <button class="action-btn duplicate" onclick="event.stopPropagation(); duplicateCollider(${collider.id})" title="Duplicate">📋</button>
+                            <button class="action-btn mirror" onclick="event.stopPropagation(); mirrorCollider(${collider.id}, 'x')" title="Mirror X">↔</button>
+                            <button class="action-btn mirror" onclick="event.stopPropagation(); mirrorCollider(${collider.id}, 'z')" title="Mirror Z">↕</button>
+                            <button class="delete-btn" onclick="event.stopPropagation(); deleteCollider(${collider.id})">×</button>
+                        </div>
+                    </div>
+                    <div class="collider-controls">
+                        <div class="control-mini">
+                            <label>X Offset</label>
+                            <input type="number" step="0.5" value="${collider.offset.x}" 
+                                onchange="updateColliderValue(${collider.id}, 'offset.x', this.value)">
+                        </div>
+                        <div class="control-mini">
+                            <label>Y Offset</label>
+                            <input type="number" step="0.5" value="${collider.offset.y}" 
+                                onchange="updateColliderValue(${collider.id}, 'offset.y', this.value)">
+                        </div>
+                        <div class="control-mini">
+                            <label>Z Offset</label>
+                            <input type="number" step="0.5" value="${collider.offset.z}" 
+                                onchange="updateColliderValue(${collider.id}, 'offset.z', this.value)">
+                        </div>
+                        ${sizeControls}
+                    </div>
+                    <div class="color-buttons">
+                        <button class="color-btn ${collider.color === COLORS.floor ? 'active' : ''}" 
+                            style="background: #00ff00;" 
+                            onclick="event.stopPropagation(); setColliderColor(${collider.id}, ${COLORS.floor})" 
+                            title="Floor"></button>
+                        <button class="color-btn ${collider.color === COLORS.stairs ? 'active' : ''}" 
+                            style="background: #ffff00;" 
+                            onclick="event.stopPropagation(); setColliderColor(${collider.id}, ${COLORS.stairs})" 
+                            title="Stairs"></button>
+                        <button class="color-btn ${collider.color === COLORS.wall ? 'active' : ''}" 
+                            style="background: #ff0000;" 
+                            onclick="event.stopPropagation(); setColliderColor(${collider.id}, ${COLORS.wall})" 
+                            title="Wall/Pole"></button>
+                        <button class="color-btn ${collider.color === COLORS.other ? 'active' : ''}" 
+                            style="background: #00ffff;" 
+                            onclick="event.stopPropagation(); setColliderColor(${collider.id}, ${COLORS.other})" 
+                            title="Other"></button>
+                    </div>
+                `;
+
+                container.appendChild(item);
+            });
+        }
+
+        // --- Export ---
+        window.exportCode = function () {
+            const assetName = document.getElementById('asset-select').value.split('/').pop().replace('.fbx', '').toUpperCase().replace(/[^A-Z0-9]/g, '_');
+
+            const lines = colliders.map(c => {
+                if (c.type === 'box') {
+                    return `    {
+        type: 'box',
+        offset: { x: ${c.offset.x}, y: ${c.offset.y}, z: ${c.offset.z} },
+        size: { width: ${c.size.width}, height: ${c.size.height}, depth: ${c.size.depth} },
+        name: '${c.name}',
+        color: 0x${c.color.toString(16).padStart(6, '0')}
+    }`;
+                } else {
+                    return `    {
+        type: 'cylinder',
+        offset: { x: ${c.offset.x}, y: ${c.offset.y}, z: ${c.offset.z} },
+        size: { radius: ${c.size.radius}, height: ${c.size.height} },
+        name: '${c.name}',
+        color: 0x${c.color.toString(16).padStart(6, '0')}
+    }`;
+                }
+            });
+
+            const code = `const ${assetName || 'ASSET'}_COLLISIONS = [
+${lines.join(',\n')}
+];`;
+
+            document.getElementById('output-code').value = code;
+        };
+
+        window.copyCode = function () {
+            const textarea = document.getElementById('output-code');
+            textarea.select();
+            navigator.clipboard.writeText(textarea.value);
+
+            // Visual feedback
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '✓ COPIED!';
+            setTimeout(() => btn.textContent = originalText, 1500);
+        };
+
+        // --- Start ---
+        init();
+    </script>
+</body>
+
+</html>
