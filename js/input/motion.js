@@ -339,7 +339,7 @@ function detectSensorOffsets(data) {
     return { gyro: best.gyro, accel: best.accel, detected: true };
 }
 
-async function attachDevice(device) {
+export async function attachDevice(device) {
     try {
         state.device = device;
         if (!device.opened) {
@@ -397,6 +397,21 @@ function handleDisconnect(event) {
 
 function applyDeadzone(rateDps) {
     return Math.abs(rateDps) < state.deadzone ? 0 : rateDps;
+}
+
+export async function detachDevice() {
+    if (state.device) {
+        if (state.device.opened) {
+            try {
+                await state.device.close();
+            } catch (e) { console.warn("Error closing device:", e); }
+        }
+        state.device.removeEventListener('inputreport', handleInputReport);
+        state.device = null;
+    }
+    state.connected = false;
+    state.status = 'Disconnected';
+    emitStatus();
 }
 
 function emitStatus() {

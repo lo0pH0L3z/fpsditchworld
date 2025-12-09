@@ -8,12 +8,14 @@ export class VibrationPatterns {
     constructor(hapticController) {
         this.haptic = hapticController;
         this.activeIntervals = []; // Track intervals to stop them later
+        this.engineInterval = null; // Specific handle for engine
+        this.engineIntensity = 0;   // Current engine intensity
     }
 
     // Helper to get raw DS instance safely
     get ds() {
         if (!this.haptic.connected || !this.haptic.ds) {
-            console.warn("VibrationPatterns: Controller not connected");
+            // console.warn("VibrationPatterns: Controller not connected");
             return null;
         }
         return this.haptic.ds;
@@ -23,6 +25,7 @@ export class VibrationPatterns {
     async stop() {
         this.activeIntervals.forEach(i => clearInterval(i));
         this.activeIntervals = [];
+        this.stopEngine();
 
         if (this.ds) {
             await this.ds.setVibrationL.setVibration(0);
@@ -30,70 +33,85 @@ export class VibrationPatterns {
         }
     }
 
+    // === FOOTSTEPS ===
+
     /**
-     * Footsteps: Alternating low-intensity pulses
-     * @param {number} duration Total duration in ms
-     * @param {number} interval Time between steps in ms
+     * Single Footstep: Quick low-intensity thud
+     * Call this on the "down" phase of head bob
      */
-    async footsteps(duration = 1000, interval = 300) {
+    async playFootstep(isSprinting = false) {
         if (!this.ds) return;
-        const pulses = Math.floor(duration / interval);
 
-        for (let i = 0; i < pulses; i++) {
-            if (!this.haptic.connected) break;
+        // Sprinting = sharper, harder step
+        const intensity = isSprinting ? 50 : 20;
+        const duration = isSprinting ? 40 : 60;
 
-            // Left foot (heavier)
-            await this.ds.setVibrationL.setVibration(100);
-            await new Promise(r => setTimeout(r, 100));
-            await this.ds.setVibrationL.setVibration(0);
+        try {
+            // Left motor for weight
+            this.ds.setVibrationL.setVibration(intensity);
+            // Tiny right for snap
+            if (isSprinting) this.ds.setVibrationR.setVibration(intensity * 0.5);
 
-            // Wait for next step
-            await new Promise(r => setTimeout(r, interval - 100));
+            setTimeout(() => {
+                if (this.haptic.connected) {
+                    this.ds.setVibrationL.setVibration(0);
+                    this.ds.setVibrationR.setVibration(0);
+                }
+            }, duration);
+        } catch (e) {
+            // ignore
+        }
+    }
+
+
+    // === VEHICLES ===
+
+    /**
+     * Start Motorbike Engine Loop
+     * Call updateEngine(intensity) to change rumble on the fly
+     */
+    async startEngine() {
+        if (!this.ds || this.engineInterval) return;
+
+        // Start a loop that just applies the current `this.engineIntensity`
+        // We pulse it slightly to feel like an engine
+
+        this.engineInterval = setInterval(async () => {
+            if (!this.haptic.connected) return this.stopEngine();
+
+            // Base Rumble
+            const base = this.engineIntensity;
+            // Pulse added to base
+            const pulse = base + (Math.random() * 20 - 10);
+
+            // Left heavier (engine block), Right lighter (vibration)
+            this.ds.setVibrationL.setVibration(Math.max(0, Math.min(255, pulse)));
+            this.ds.setVibrationR.setVibration(Math.max(0, Math.min(255, pulse * 0.6)));
+
+        }, 50); // 20hz update
+    }
+
+    stopEngine() {
+        if (this.engineInterval) {
+            clearInterval(this.engineInterval);
+            this.engineInterval = null;
+        }
+        if (this.ds) {
+            this.ds.setVibrationL.setVibration(0);
+            this.ds.setVibrationR.setVibration(0);
         }
     }
 
     /**
-     * Motorcycle: Continuous rumble with pulsing engine revs
+     * Update current engine intensity
+     * @param {number} intensity 0-255
      */
-    async motorcycle(intensity = 150, pulseFreq = 200) {
-        if (!this.ds) return;
-
-        // Base rumble
-        await this.ds.setVibrationL.setVibration(intensity);
-        await this.ds.setVibrationR.setVibration(intensity * 0.7);
-
-        const id = setInterval(async () => {
-            if (!this.haptic.connected) return clearInterval(id);
-            // Rev pulse
-            await this.ds.setVibrationL.setVibration(Math.min(255, intensity + 20));
-            setTimeout(() => {
-                if (this.haptic.connected) this.ds.setVibrationL.setVibration(intensity);
-            }, 50);
-        }, pulseFreq);
-
-        this.activeIntervals.push(id);
+    updateEngine(intensity) {
+        this.engineIntensity = intensity;
     }
 
-    /**
-     * Helicopter: High-freq buzz + low rumble + oscillation
-     */
-    async helicopter(intensity = 120, oscillation = 500) {
-        if (!this.ds) return;
 
-        await this.ds.setVibrationR.setVibration(intensity);
-        await this.ds.setVibrationL.setVibration(intensity / 2);
-
-        const id = setInterval(async () => {
-            if (!this.haptic.connected) return clearInterval(id);
-            // Blade whoosh effect
-            await this.ds.setVibrationR.setVibration(Math.min(255, intensity + 30));
-            setTimeout(() => {
-                if (this.haptic.connected) this.ds.setVibrationR.setVibration(intensity);
-            }, 200);
-        }, oscillation);
-
-        this.activeIntervals.push(id);
-    }
+    // === WEAPONS ===
 
     /**
      * Sniper: Sharp single recoil pulse
@@ -101,33 +119,35 @@ export class VibrationPatterns {
     async sniper() {
         if (!this.ds) return;
         await this.ds.setVibrationR.setVibration(255);
+        await this.ds.setVibrationL.setVibration(200); // Add left for heft
         setTimeout(() => {
-            if (this.haptic.connected) this.ds.setVibrationR.setVibration(0);
+            if (this.haptic.connected) {
+                this.ds.setVibrationR.setVibration(0);
+                this.ds.setVibrationL.setVibration(0);
+            }
         }, 150);
     }
 
     /**
      * SMG: Rapid repeating burst chatter
      */
-    async smg(bursts = 10, delay = 40) {
+    async smg() {
+        // Just a single shot ping, assuming game loop calls this rapidly
         if (!this.ds) return;
-        for (let i = 0; i < bursts; i++) {
-            if (!this.haptic.connected) break;
 
-            await this.ds.setVibrationR.setVibration(180);
-            await this.ds.setVibrationL.setVibration(120);
+        await this.ds.setVibrationR.setVibration(150);
+        await this.ds.setVibrationL.setVibration(80);
 
-            await new Promise(r => setTimeout(r, delay));
-
-            await this.ds.setVibrationR.setVibration(0);
-            await this.ds.setVibrationL.setVibration(0);
-
-            await new Promise(r => setTimeout(r, delay / 2));
-        }
+        setTimeout(() => {
+            if (this.haptic.connected) {
+                this.ds.setVibrationR.setVibration(0);
+                this.ds.setVibrationL.setVibration(0);
+            }
+        }, 40); // very short for high ROF
     }
 
     /**
-     * Pistol: Punchy pulse with slight echo
+     * Pistol: Punchy pulse
      */
     async pistol() {
         if (!this.ds) return;
@@ -135,15 +155,29 @@ export class VibrationPatterns {
 
         setTimeout(async () => {
             if (!this.haptic.connected) return;
-            await this.ds.setVibrationL.setVibration(100);
+            await this.ds.setVibrationL.setVibration(100); // Echo
 
             setTimeout(() => {
                 if (this.haptic.connected) {
                     this.ds.setVibrationR.setVibration(0);
                     this.ds.setVibrationL.setVibration(0);
                 }
-            }, 100);
-        }, 50);
+            }, 80);
+        }, 20);
+    }
+
+    /**
+     * Reload: Mechanical clicks
+     */
+    async reload() {
+        if (!this.ds) return;
+        // Mag out
+        this.ds.setVibrationR.setVibration(50);
+        setTimeout(() => this.haptic.connected && this.ds.setVibrationR.setVibration(0), 100);
+
+        // Mag in (delayed) - hard to sync perfectly without events, but we can do a generic "clunk"
+        // Actually, better to just let the game call specific events if we had them.
+        // For now, just a small "start reload" feedback
     }
 
     /**
@@ -164,28 +198,5 @@ export class VibrationPatterns {
 
         await this.ds.setVibrationL.setVibration(0);
         await this.ds.setVibrationR.setVibration(0);
-    }
-
-    /**
-     * Environmental Rumble: Sustained variable background
-     */
-    async envRumble(intensity = 80, duration = 5000) {
-        if (!this.ds) return;
-        await this.ds.setVibrationL.setVibration(intensity);
-
-        const id = setInterval(async () => {
-            if (!this.haptic.connected) return clearInterval(id);
-            // Random variation
-            const varInt = Math.max(0, Math.min(255, intensity + (Math.random() * 40 - 20)));
-            await this.ds.setVibrationL.setVibration(varInt);
-        }, 200);
-
-        this.activeIntervals.push(id);
-
-        setTimeout(() => {
-            clearInterval(id);
-            // remove from active list if possible, or just let stop() handle it
-            if (this.haptic.connected) this.ds.setVibrationL.setVibration(0);
-        }, duration);
     }
 }

@@ -90,6 +90,18 @@ class Vehicle {
 
     enter() {
         this.isOccupied = true;
+
+        if (this.vibes) {
+            this.vibes.startEngine();
+            // Set Triggers to resistance for throttle/brake?
+            if (this.haptic && this.haptic.connected) {
+                // Throttle (R2) - Soft spring
+                // Brake (L2) - Soft spring
+                // Actually library might not support independent settings yet easily with this helper, 
+                // but let's leave triggers standard or set to "Rigid" 
+                // this.haptic.ds.setTriggerR.setEffect(this.haptic.effects.Resistance);
+            }
+        }
     }
 
     exit() {
@@ -97,6 +109,10 @@ class Vehicle {
         this.speed = 0;
         this.verticalVelocity = 0;
         this.isAirborne = false;
+
+        if (this.vibes) {
+            this.vibes.stopEngine();
+        }
     }
 
     toggleCameraMode() {
@@ -246,6 +262,24 @@ class Vehicle {
             this.speed = 0;
         }
 
+        // HAPTIC ENGINE UPDATE
+        if (this.vibes) {
+            // Calculate "RPM" roughly based on gear and speed ratio
+            const gearMax = this.gearSpeedLimits[this.currentGear];
+            const gearMin = this.gearSpeedLimits[this.currentGear - 1] || 0;
+            const range = gearMax - gearMin;
+            const speedInGear = Math.abs(this.speed) - gearMin;
+
+            let rpmPercent = speedInGear / range;
+            if (this.isAirborne) rpmPercent *= 1.2; // Rev high in air
+
+            // Base rumble intensity (idle = 20, max = 150)
+            let rumble = 20 + (Math.min(1, rpmPercent) * 130);
+            if (Math.abs(this.speed) < 0.5) rumble = 10; // Idle
+
+            this.vibes.updateEngine(Math.floor(rumble));
+        }
+
         // Steering & Air Control
         if (this.isAirborne) {
             // ROTATION MOMENTUM SYSTEM - rotations ramp up over time
@@ -378,6 +412,9 @@ class Vehicle {
         // Bounce effect on collision
         if (collided) {
             this.speed *= -0.2;
+            if (this.vibes && Math.abs(this.speed) > 5) { // Only heavy hits
+                this.vibes.impact();
+            }
         }
 
         return { x: finalX, z: finalZ };
@@ -928,17 +965,23 @@ class Motorbike extends Vehicle {
  * VehicleManager - Manages all vehicles in the game
  */
 export class VehicleManager {
-    constructor(scene) {
+    constructor(scene, vibes, haptic) {
         this.scene = scene;
         this.vehicles = [];
-        this.currentVehicle = null;
+        this.vibes = vibes;
+        this.haptic = haptic;
     }
 
-    createMotorbike(position = new THREE.Vector3(5, 0, -10)) {
+    createMotorbike(position) {
         const motorbike = new Motorbike(this.scene, position);
+        // Inject haptics into vehicle
+        motorbike.vibes = this.vibes;
+        motorbike.haptic = this.haptic;
+
         this.vehicles.push(motorbike);
         return motorbike;
     }
+
 
     getNearestVehicle(playerPosition) {
         let nearest = null;

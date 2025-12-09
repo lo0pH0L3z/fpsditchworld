@@ -9,7 +9,7 @@ import { createDirtJumps, getDirtJumpGroundHeight, checkRampSideCollision } from
 import { spawnTargets, createTarget, updateTargets as updateTargetPositions } from '../entities/targets.js';
 import { createInputState, registerInputListeners } from '../input/input.js';
 import { setupSettingsUI, toggleSettings } from './settings.js';
-import { initMotion, setMotionEnabled, setMotionSensitivityH, setMotionSensitivityV, setMotionInvertY, setMotionAdsMultiplierH, setMotionAdsMultiplierV, setMotionADS, setMotionFovScale, setMotionFovScaleEnabled, setMotionFovScaleStrength, setMotionDeadzone, requestMotionDevice, calibrateMotion, consumeMotionLook, getMotionState, getMotionDebug, cycleYawAxis, flipYawSign, cyclePitchAxis, flipPitchSign } from '../input/motion.js';
+import { initMotion, setMotionEnabled, setMotionSensitivityH, setMotionSensitivityV, setMotionInvertY, setMotionAdsMultiplierH, setMotionAdsMultiplierV, setMotionADS, setMotionFovScale, setMotionFovScaleEnabled, setMotionFovScaleStrength, setMotionDeadzone, requestMotionDevice, calibrateMotion, consumeMotionLook, getMotionState, getMotionDebug, cycleYawAxis, flipYawSign, cyclePitchAxis, flipPitchSign, attachDevice, detachDevice } from '../input/motion.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -26,6 +26,8 @@ import { preloadRadioTower, createRadioTower } from '../locations/radiotower.js'
 import { preloadLookout, createLookout } from '../locations/lookout.js';
 import { preloadWarehouse, createWarehouse } from '../locations/warehouse.js';
 import { initCamera, getCamera, getGunCamera, updateLook as updateCameraLook, updateCameraFov as updateCameraFovModule, syncGunCamera, onCameraResize, setLookSpeeds, getPitch, getYaw, setPitch, isInLandingRecovery, startLandingRecovery, applyRecoil } from './camera.js';
+import { HapticController, TrigerEffects } from '../input/haptic.js';
+import { VibrationPatterns } from '../input/vibrations.js';
 
 // --- Config & State ---
 const CONFIG = {
@@ -138,6 +140,12 @@ let jumpHoldTime = 0;
 let lastJumpPressed = false;
 const MEGA_JUMP_CHARGE_TIME = 0.5; // Seconds to fully charge
 const MEGA_JUMP_MULTIPLIER = 2.5; // Max jump force multiplier
+
+// --- HAPTICS STATE ---
+const haptics = new HapticController();
+const vibes = new VibrationPatterns(haptics);
+let hapticsConnected = false;
+
 
 function updateMotionStatusUI(status) {
     const statusEl = document.getElementById('motion-status');
@@ -378,7 +386,8 @@ async function init() {
     initMultiplayer();
 
     // Initialize vehicle system
-    vehicleManager = new VehicleManager(scene);
+    // Initialize vehicle system
+    vehicleManager = new VehicleManager(scene, vibes, haptics);
     vehicleManager.createMotorbike(new THREE.Vector3(8, 0, -5)); // Spawn motorbike near start
 
     // Create dirt jump ramps around the map perimeter
@@ -444,8 +453,36 @@ async function init() {
         onMotionFovScaleStrengthChange: (value) => { setMotionFovScaleStrength(value); },
         onMotionDeadzoneChange: (value) => { setMotionDeadzone(value); },
         onMotionConnect: async () => {
+            // STRATEGY: Ensure device is free before Haptics tries to grab it.
+            // Motion might have auto-connected on page load.
+
             try {
-                await requestMotionDevice();
+                // 1. Force detach motion to close the device handle
+                // This solves "Device already open" error from jsDualsense
+                await detachDevice();
+
+                // 2. Connect Haptics
+                if (!hapticsConnected) {
+                    await haptics.connect();
+                    hapticsConnected = true;
+                    updateWeaponHaptics(currentWeapon);
+                    console.log("🎮 Haptics Connected!");
+                }
+            } catch (err) {
+                console.warn("Haptics connect failed:", err);
+            }
+
+            // 3. Connect Motion (Reuse device if possible)
+            try {
+                const devices = await navigator.hid.getDevices();
+                const sonyDevice = devices.find(d => d.vendorId === 0x054c);
+
+                if (sonyDevice) {
+                    await attachDevice(sonyDevice);
+                    console.log("🎮 Motion Attached (Shared Device)");
+                } else {
+                    await requestMotionDevice();
+                }
             } catch (err) {
                 console.error('Motion connect failed', err);
             }
@@ -858,6 +895,16 @@ function handleInput(delta) {
             if (!interacted) reload();
         }
     }
+
+    // Manual Haptics Connect (F8)
+    if (keys.f8 && !hapticsConnected) {
+        haptics.connect().then(() => {
+            hapticsConnected = true;
+            updateWeaponHaptics(currentWeapon);
+            console.log("🎮 Haptics Connected via F8");
+        });
+    }
+
     wasSquarePressed = input.squarePressed;
 
     if (debugPanel) {
@@ -1015,6 +1062,19 @@ function updateMovement(input, delta) {
         // We use Math.sin for standard up/down bob
         const bobOffset = Math.sin(walkTimer) * bobAmp;
         targetHeight += bobOffset;
+
+        // Footstep Haptic Trigger
+        // Trigger on the "down" step (when sin wave crosses 0 going down or hits bottom?)
+        // Ideally peak-down. Math.sin goes 0->1->0->-1->0
+        // We want to trigger around -0.8 (bottom)
+        const inStep = Math.sin(walkTimer) < -0.8;
+        if (inStep && !window._lastStepTriggered) {
+            vibes.playFootstep(isSprinting);
+            window._lastStepTriggered = true;
+        } else if (!inStep) {
+            window._lastStepTriggered = false;
+        }
+
     } else {
         // Reset timer when stopped so we always start distinct step
         walkTimer = 0;
@@ -1555,6 +1615,15 @@ function shoot(intensity) {
 
         playShootSound(currentWeapon);
 
+        // Haptic Shot
+        if (hapticsConnected) {
+            const w = WEAPONS[currentWeapon];
+            // Simple mapping based on name
+            if (currentWeapon === 'SNIPER') vibes.sniper();
+            else if (currentWeapon === 'PISTOL') vibes.pistol();
+            else vibes.smg(); // Default for automatics
+        }
+
         // Notify other players
         if (multiplayerEnabled && networkManager && networkManager.isConnected()) {
             const direction = raycaster.ray.direction;
@@ -2010,25 +2079,58 @@ function updateAmmoDisplay() {
     document.getElementById('ammo').innerText = ammoText;
 }
 
+// --- HAPTIC HELPERS ---
+
+async function updateWeaponHaptics(weaponName) {
+    if (!hapticsConnected) return;
+
+    // Choose effect based on weapon
+    let effect = TrigerEffects.Weapon; // Default
+
+    switch (weaponName) {
+        case 'PISTOL':
+            effect = TrigerEffects.SemiAutomaticGun;
+            break;
+        case 'SMG':
+        case 'SMG2':
+        case 'CHLOBANATOR':
+            effect = TrigerEffects.AutomaticGun;
+            break;
+        case 'SNIPER':
+            effect = TrigerEffects.Resistance; // Heavy trigger
+            break;
+    }
+
+    // Apply to Right Trigger
+    try {
+        await haptics.ds.setTriggerR.setEffect(effect);
+    } catch (e) { console.warn("Trigger update failed", e); }
+}
+
 function switchWeapon() {
-    // Cycle through available weapons (SMG -> PISTOL -> SNIPER)
+    if (isReloading) return;
     currentWeaponIndex = (currentWeaponIndex + 1) % WEAPON_ORDER.length;
+
+    // Skip un-owned weapons? (Assuming all owned for now)
+
     currentWeapon = WEAPON_ORDER[currentWeaponIndex];
     currentWeaponAnim = getWeaponAnimConfig(currentWeapon);
-    isADS = false;
 
-    // Reset ammo to the new weapon's stats
-    const weapon = WEAPONS[currentWeapon];
-    currentAmmo = weapon.magSize;
-    reserveAmmo = weapon.reserveAmmo;
-    emptyClickLocked = false;
-
-    // Update the ammo display
+    // Update Ammo Info
+    currentAmmo = WEAPONS[currentWeapon].magSize;
+    reserveAmmo = WEAPONS[currentWeapon].reserveAmmo; // Simplified: refilled on swap for prototype
     updateAmmoDisplay();
 
-    // Rebuild the gun model for the new weapon
+    // Rebuild gun model group
     gunGroup = createGun(gunScene, gunCamera, currentWeapon, gunGroup);
     attachArmsToGun(currentWeapon);
+
+    updateWeaponHaptics(currentWeapon);
+
+    // Reset ADS if holding it
+    if (isADS) {
+        // Re-apply ads speed? maintained by update loop
+    }
 }
 
 function reload() {
@@ -2038,6 +2140,9 @@ function reload() {
     updateAmmoDisplay(); // Shows "RELOADING..."
 
     playMagEjectSound();
+
+    // Haptic
+    if (hapticsConnected) vibes.reload();
 
     // Schedule mag insertion sound
     setTimeout(() => {
