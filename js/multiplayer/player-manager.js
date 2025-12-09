@@ -5,6 +5,8 @@
 
 import * as THREE from 'three';
 
+const DEFAULT_SPAWN_Y = 1.6;
+
 export class PlayerManager {
     constructor(scene) {
         this.scene = scene;
@@ -107,14 +109,14 @@ export class PlayerManager {
             roughness: 0.5,
             metalness: 0.8
         });
+        const weaponSocket = new THREE.Group();
+        weaponSocket.position.set(-0.5, 1.0, -0.5);
+        weaponSocket.rotation.y = -Math.PI / 4;
+        group.add(weaponSocket);
+
         const weapon = new THREE.Mesh(weaponGeometry, weaponMaterial);
-        // Position relative to "RightArm" (which is at -0.4, 1.0)
-        // Arms are rotated, so hand is lower.
-        // Let's place it roughly where the hand would be.
-        weapon.position.set(-0.5, 1.0, -0.5);
-        weapon.rotation.y = -Math.PI / 4;
         weapon.castShadow = true;
-        group.add(weapon);
+        weaponSocket.add(weapon);
 
         // Nametag (sprite with text)
         const nameTag = this.createNameTag(playerData.name);
@@ -136,6 +138,7 @@ export class PlayerManager {
             rightLegPivot: rightLegPivot,
             nameTag: nameTag,
             healthBar: healthBar,
+            weaponSocket: weaponSocket,
             targetPosition: new THREE.Vector3(),
             targetRotation: new THREE.Euler(),
             velocity: new THREE.Vector3(),
@@ -223,16 +226,17 @@ export class PlayerManager {
         const playerMesh = this.createPlayerMesh(playerData);
 
         // Set initial position
-        if (playerData.position) {
-            playerMesh.position.set(
-                playerData.position.x,
-                playerData.position.y,
-                playerData.position.z
-            );
-            if (playerMesh.userData.lastPosition) {
-                playerMesh.userData.lastPosition.copy(playerMesh.position);
-            }
+        const spawnY = (playerData.position && typeof playerData.position.y === 'number')
+            ? playerData.position.y
+            : DEFAULT_SPAWN_Y;
+        const spawnX = playerData.position?.x ?? 0;
+        const spawnZ = playerData.position?.z ?? 0;
+
+        playerMesh.position.set(spawnX, spawnY, spawnZ);
+        if (playerMesh.userData.lastPosition) {
+            playerMesh.userData.lastPosition.copy(playerMesh.position);
         }
+        playerMesh.userData.targetPosition.set(spawnX, spawnY, spawnZ);
 
         // Set initial rotation
         if (playerData.rotation) {

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DualSense Ultimate Tester</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #BB86FC;
+            margin-bottom: 10px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #03DAC6;
+            font-size: 1.2rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        select {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #BB86FC;
+            background-color: #121212;
+            color: #fff;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .effect-info {
+            background: #2c2c2c;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            min-height: 60px;
+        }
+
+        .effect-info strong {
+            color: #CF6679;
+        }
+
+        button {
+            padding: 12px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .apply-btn {
+            background-color: #3700B3;
+            color: white;
+        }
+
+        .apply-btn:hover {
+            background-color: #6200EE;
+        }
+
+        .preset-btn {
+            background-color: #333;
+            color: #03DAC6;
+            margin-bottom: 5px;
+            text-align: left;
+            border: 1px solid #555;
+        }
+
+        .preset-btn:hover {
+            background-color: #444;
+            border-color: #03DAC6;
+        }
+
+        #connectBtn {
+            background-color: #03DAC6;
+            color: black;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        #connectBtn:disabled {
+            background-color: #018786;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .status-bar {
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #222;
+            width: 100%;
+            max-width: 900px;
+            text-align: center;
+            border-radius: 5px;
+            color: #aaa;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>🎮 DualSense Ultimate Tester</h1>
+
+    <button id="connectBtn">🔌 Connect Controller to Start</button>
+    <div id="status" class="status-bar">Status: Waiting for connection...</div>
+
+    <div class="container">
+        <!-- Left Trigger Panel -->
+        <div class="panel">
+            <h2>Left Trigger (L2)</h2>
+            <select id="leftSelect"></select>
+            <div id="leftInfo" class="effect-info">
+                Select an effect to see details.
+            </div>
+            <button id="applyLeft" class="apply-btn">Apply L2 Effect</button>
+        </div>
+
+        <!-- Right Trigger Panel -->
+        <div class="panel">
+            <h2>Right Trigger (R2)</h2>
+            <select id="rightSelect"></select>
+            <div id="rightInfo" class="effect-info">
+                Select an effect to see details.
+            </div>
+            <button id="applyRight" class="apply-btn">Apply R2 Effect</button>
+        </div>
+
+        <!-- Quick Presets Panel -->
+        <div class="panel full-width">
+            <h2>⚡ Quick Presets (Game Scenarios)</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                <button class="preset-btn" onclick="applyPreset('Off', 'Weapon')">🔫 Shooter Standard<br><small>L: Off |
+                        R: Weapon (SMG)</small></button>
+                <button class="preset-btn" onclick="applyPreset('Bow', 'Bow')">🏹 Archery Range<br><small>L: Bow | R:
+                        Bow</small></button>
+                <button class="preset-btn" onclick="applyPreset('Galloping', 'Machine')">🐎 Minigun on
+                    Horse<br><small>L: Gallop | R: Minigun</small></button>
+                <button class="preset-btn" onclick="applyPreset('Resistance', 'SemiAutomaticGun')">🚪 Heavy
+                    Breach<br><small>L: Resistance | R: Pistol</small></button>
+                <button class="preset-btn" onclick="applyPreset('PulseA', 'PulseB')">👽 Alien Warfare<br><small>L: Pulse
+                        A | R: Pulse B</small></button>
+                <button class="preset-btn" onclick="applyPreset('Off', 'Machine')">🏎️ Full Throttle<br><small>L: Brake
+                        | R: Gas (Rumble)</small></button>
+            </div>
+        </div>
+
+        <!-- Vibration Patterns Panel -->
+        <div class="panel full-width">
+            <h2>📳 Vibration Patterns</h2>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                <button class="preset-btn" onclick="runVibe('footsteps')">👣 Footsteps</button>
+                <button class="preset-btn" onclick="runVibe('motorcycle')">🏍️ Motorcycle (Start)</button>
+                <button class="preset-btn" onclick="runVibe('helicopter')">🚁 Helicopter (Start)</button>
+                <button class="preset-btn" onclick="runVibe('sniper')">🎯 Sniper Shot</button>
+                <button class="preset-btn" onclick="runVibe('smg')">🔫 SMG Burst</button>
+                <button class="preset-btn" onclick="runVibe('pistol')">🔫 Pistol Shot</button>
+                <button class="preset-btn" onclick="runVibe('impact')">💥 Impact / Explosion</button>
+                <button class="preset-btn" onclick="runVibe('envRumble')">🌧️ Env. Rumble</button>
+                <button class="preset-btn" style="background: #CF6679; color: black;" onclick="stopVibe()">🛑 STOP ALL
+                    VIBRATIONS</button>
+            </div>
+        </div>
+
+
+    </div>
+
+    <script type="module">
+        import { HapticController, TrigerEffects } from './haptic.js';
+
+        // Metadata map for display
+        const meta = {
+            "Off": { desc: "No effect – trigger acts normally", use: "Default / reset" },
+            "Vibration": { desc: "Continuous vibration on the trigger", use: "Machine gun, chainsaw" },
+            "Resistance": { desc: "Strong resistance (hard to pull)", use: "Bow draw, heavy door" },
+            "Weapon": { desc: "Classic PS5 “machine-gun” feel (soft → click → resistance)", use: "Automatic rifle, SMG" },
+            "Bow": { desc: "Progressive resistance like drawing a bow", use: "Archery, slingshot" },
+            "Galloping": { desc: "Rhythmic pulsing (horse gallop style)", use: "Horse riding" },
+            "SemiAutomaticGun": { desc: "Soft click + hard stop (single-shot feel)", use: "Pistol, revolver" },
+            "AutomaticGun": { desc: "Same as Weapon – rapid-fire feel", use: "Full-auto weapons" },
+            "Machine": { desc: "Very strong, high-frequency vibration + resistance", use: "Minigun, jackhammer" },
+            "PulseA": { desc: "Custom pulse pattern A", use: "Sci-fi weapons" },
+            "PulseB": { desc: "Custom pulse pattern B", use: "Different sci-fi feel" },
+            "VibrationA": { desc: "Alternate vibration pattern", use: "Custom feedback" },
+            "VibrationB": { desc: "Another alternate vibration pattern", use: "Custom feedback" },
+            // Fallback for any unknown keys
+            "default": { desc: "Standard Effect", use: "General Purpose" }
+        };
+
+        const haptics = new HapticController();
+        const leftSelect = document.getElementById('leftSelect');
+        const rightSelect = document.getElementById('rightSelect');
+        const leftInfo = document.getElementById('leftInfo');
+        const rightInfo = document.getElementById('rightInfo');
+        const statusEl = document.getElementById('status');
+        const connectBtn = document.getElementById('connectBtn');
+
+        // Populate logic
+        const keys = Object.keys(TrigerEffects);
+
+        function updateInfo(side) {
+            const sel = side === 'left' ? leftSelect : rightSelect;
+            const info = side === 'left' ? leftInfo : rightInfo;
+            const key = sel.value;
+            const data = meta[key] || meta.default;
+
+            info.innerHTML = `
+                <strong>Description:</strong> ${data.desc}<br>
+                <strong>Typical Use:</strong> ${data.use}
+            `;
+        }
+
+        keys.forEach(k => {
+            const optL = document.createElement('option');
+            optL.value = k;
+            optL.textContent = k;
+            leftSelect.appendChild(optL);
+
+            const optR = document.createElement('option');
+            optR.value = k;
+            optR.textContent = k;
+            rightSelect.appendChild(optR);
+        });
+
+        // Set defaults
+        leftSelect.value = "Off";
+        rightSelect.value = "Weapon";
+        updateInfo('left');
+        updateInfo('right');
+
+        // Events
+        leftSelect.addEventListener('change', () => updateInfo('left'));
+        rightSelect.addEventListener('change', () => updateInfo('right'));
+
+        document.getElementById('applyLeft').addEventListener('click', async () => {
+            if (!haptics.connected) return alert("Connect first!");
+            const effect = leftSelect.value;
+            try {
+                await haptics.ds.setTriggerL.setEffect(TrigerEffects[effect]);
+                console.log(`Applied Left: ${effect}`);
+            } catch (e) { console.error(e); }
+        });
+
+        document.getElementById('applyRight').addEventListener('click', async () => {
+            if (!haptics.connected) return alert("Connect first!");
+            const effect = rightSelect.value;
+            try {
+                await haptics.ds.setTriggerR.setEffect(TrigerEffects[effect]);
+                console.log(`Applied Right: ${effect}`);
+            } catch (e) { console.error(e); }
+        });
+
+        // Expose preset function to window for the onclick handlers
+        window.applyPreset = async (left, right) => {
+            if (!haptics.connected) return alert("Connect first!");
+
+            // GUI Update
+            leftSelect.value = left;
+            rightSelect.value = right;
+            updateInfo('left');
+            updateInfo('right');
+
+            // Haptic Apply
+            try {
+                await haptics.ds.setTriggerL.setEffect(TrigerEffects[left]);
+                await haptics.ds.setTriggerR.setEffect(TrigerEffects[right]);
+            } catch (e) { console.error(e); }
+        };
+
+        connectBtn.addEventListener('click', async () => {
+            try {
+                await haptics.connect();
+                statusEl.textContent = "Status: Connected ✅ | Ready to Test";
+                statusEl.style.color = "#03DAC6";
+                connectBtn.textContent = "Connected";
+                connectBtn.disabled = true;
+            } catch (e) {
+                statusEl.textContent = "Status: Failed ❌";
+                statusEl.style.color = "#CF6679";
+                alert("Connection failed. Check USB/Browser.");
+            }
+        });
+
+        // Vibration Integration
+        import { VibrationPatterns } from './vibrations.js';
+        let vibes; // Lazy init after connection
+
+        // We wrap vibe calls to ensure init
+        window.runVibe = async (name) => {
+            if (!haptics.connected) return alert("Connect first!");
+            if (!vibes) vibes = new VibrationPatterns(haptics);
+
+            console.log(`Running vibration: ${name}`);
+            try {
+                if (vibes[name]) await vibes[name]();
+                else console.error("Unknown vibration:", name);
+            } catch (e) { console.error(e); }
+        };
+
+        window.stopVibe = async () => {
+            if (vibes) await vibes.stop();
+        };
+    </script>
+</body>
+
+</html>

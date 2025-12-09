@@ -33,6 +33,15 @@ export async function preloadWarehouse() {
 
     const textureLoader = new THREE.TextureLoader();
     const fbxLoader = new FBXLoader();
+    fbxLoader.setResourcePath(TEXTURE_BASE);
+    // Remap missing FBX references (e.g., "Image") to a known texture to avoid 404 spam
+    const fallbackTexture = TEXTURE_BASE + TEXTURES.metalPlates;
+    fbxLoader.manager.setURLModifier((url) => {
+        if (url.endsWith('/Image') || url.endsWith('\\Image') || url === 'Image') {
+            return fallbackTexture;
+        }
+        return url;
+    });
 
     // Load all textures first
     const texturePromises = Object.entries(TEXTURES).map(([key, filename]) => {

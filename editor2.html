@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Editor – Ultimate</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #1a1a2e;
+            font-family: 'Segoe UI', sans-serif;
+            color: #eee;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: calc(100% - 380px);
+            height: 100%;
+        }
+
+        #controls {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 380px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            overflow-y: auto;
+            padding: 20px;
+            border-left: 2px solid #333;
+        }
+
+        h1 {
+            margin: 0 0 5px 0;
+            font-size: 24px;
+            background: linear-gradient(90deg, #ff6b6b, #feca57);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h2 {
+            font-size: 13px;
+            margin: 15px 0 8px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 4px;
+        }
+
+        .section {
+            background: #1a1a2e;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #333;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .control-row label {
+            flex: 0 0 80px;
+            color: #aaa;
+        }
+
+        .control-row input[type="text"],
+        .control-row input[type="number"] {
+            flex: 1;
+            background: #2a2a3e;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 4px 6px;
+            border-radius: 4px;
+        }
+
+        .control-row input[type="range"] {
+            flex: 1;
+            accent-color: #ff6b6b;
+        }
+
+        .control-row input[type="color"] {
+            width: 40px;
+            height: 24px;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+
+        .control-row .value {
+            width: 40px;
+            text-align: right;
+            color: #666;
+            font-size: 11px;
+        }
+
+        select {
+            width: 100%;
+            padding: 6px;
+            background: #2a2a3e;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 4px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 15px;
+            margin-top: 15px;
+        }
+
+        .tabs button {
+            flex: 1;
+            padding: 10px;
+            font-size: 12px;
+            background: #2a2a3e;
+            border: none;
+            color: #888;
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+        }
+
+        .tabs button.active {
+            background: #3a3a4e;
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        button.action-btn {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 6px;
+        }
+
+        button.secondary {
+            background: #333;
+            font-size: 11px;
+            padding: 6px;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button.secondary:hover {
+            background: #444;
+        }
+
+        button.secondary.active {
+            background: #ff6b6b;
+            color: #000;
+        }
+
+        button.add {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            color: #fff;
+            padding: 8px;
+            width: 32%;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .parts-list {
+            max-height: 150px;
+            overflow-y: auto;
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .part-item {
+            padding: 6px 10px;
+            font-size: 12px;
+            border-bottom: 1px solid #222;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .part-item:hover {
+            background: #222;
+        }
+
+        .part-item.selected {
+            background: #3a3a4e;
+            color: #ff6b6b;
+            border-left: 3px solid #ff6b6b;
+        }
+
+        .part-item .del-btn {
+            color: #f44;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 4px;
+        }
+
+        .mini-input {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mini-input label {
+            font-size: 9px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .mini-input input {
+            width: 100%;
+            font-size: 11px;
+            padding: 2px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            background: #111;
+            color: #4ade80;
+            border: 1px solid #333;
+            font-family: monospace;
+            font-size: 10px;
+            padding: 8px;
+            resize: vertical;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="canvas-container"></div>
+    <div id="controls">
+        <h1>Character Editor</h1>
+        <div style="font-size:12px; color:#666;">Ultimate Edition</div>
+
+        <div class="tabs">
+            <button class="active" onclick="switchTab('body')">🧍 Body</button>
+            <button onclick="switchTab('face')">😺 Face</button>
+            <button onclick="switchTab('attachments')">🎒 Attachments</button>
+        </div>
+
+        <!-- BODY TAB -->
+        <div id="tab-body" class="tab-content active">
+            <div class="section">
+                <h2>Torso</h2>
+                <div class="control-row"><label>Color</label><input type="color" id="body-color"
+                        oninput="updateCfg('body','color',this.value)"></div>
+                <div class="control-row"><label>Height</label><input type="range" id="body-height" min="0.3" max="2"
+                        step="0.05" oninput="updateCfgNum('body','height',this.value)"><span class="value"
+                        id="v-body-height"></span></div>
+                <div class="control-row"><label>Girth</label><input type="range" id="body-radius" min="0.1" max="0.6"
+                        step="0.01" oninput="updateCfgNum('body','radius',this.value)"><span class="value"
+                        id="v-body-radius"></span></div>
+            </div>
+            <div class="section">
+                <h2>Head</h2>
+                <div class="control-row"><label>Color</label><input type="color" id="head-color"
+                        oninput="updateCfg('head','color',this.value)"></div>
+                <div class="control-row"><label>Size</label><input type="range" id="head-radius" min="0.15" max="0.5"
+                        step="0.01" oninput="updateCfgNum('head','radius',this.value)"><span class="value"
+                        id="v-head-radius"></span></div>
+                <div class="control-row"><label>Ear Style</label><select id="f-earType"
+                        onchange="updateCfg('features','earType',this.value)"></select></div>
+                <div class="control-row"><label>Tail Style</label><select id="f-tailType"
+                        onchange="updateCfg('features','tailType',this.value)"></select></div>
+            </div>
+            <div class="section">
+                <h2>🐱 Ears</h2>
+                <div class="control-row"><label>Color</label><input type="color" id="ears-color"
+                        oninput="updateCfg('ears','color',this.value)"></div>
+                <div class="control-row"><label>Inner Color</label><input type="color" id="ears-innerColor"
+                        oninput="updateCfg('ears','innerColor',this.value)"></div>
+                <div class="control-row"><label>Size</label><input type="range" id="ears-size" min="0.3" max="2"
+                        step="0.05" oninput="updateCfgNum('ears','size',this.value)"><span class="value"
+                        id="v-ears-size"></span></div>
+                <div class="control-row"><label>Height (Y)</label><input type="range" id="ears-offsetY" min="0"
+                        max="0.5" step="0.01" oninput="updateCfgNum('ears','offsetY',this.value)"><span class="value"
+                        id="v-ears-offsetY"></span></div>
+                <div class="control-row"><label>Spread (X)</label><input type="range" id="ears-offsetX" min="0.05"
+                        max="0.4" step="0.01" oninput="updateCfgNum('ears','offsetX',this.value)"><span class="value"
+                        id="v-ears-offsetX"></span></div>
+                <div class="control-row"><label>Tilt</label><input type="range" id="ears-rotZ" min="0" max="1"
+                        step="0.05" oninput="updateCfgNum('ears','rotZ',this.value)"><span class="value"
+                        id="v-ears-rotZ"></span></div>
+            </div>
+            <div class="section">
+                <h2>😺 Whiskers</h2>
+                <div class="control-row"><label>Color</label><input type="color" id="whiskers-color"
+                        oninput="updateCfg('whiskers','color',this.value)"></div>
+                <div class="control-row"><label>Length</label><input type="range" id="whiskers-length" min="0.3" max="2"
+                        step="0.05" oninput="updateCfgNum('whiskers','length',this.value)"><span class="value"
+                        id="v-whiskers-length"></span></div>
+                <div class="control-row"><label>Thickness</label><input type="range" id="whiskers-thickness" min="0.3"
+                        max="2" step="0.05" oninput="updateCfgNum('whiskers','thickness',this.value)"><span
+                        class="value" id="v-whiskers-thickness"></span></div>
+                <div class="control-row"><label>Spread</label><input type="range" id="whiskers-spread" min="0.5" max="2"
+                        step="0.05" oninput="updateCfgNum('whiskers','spread',this.value)"><span class="value"
+                        id="v-whiskers-spread"></span></div>
+                <div class="control-row"><label>Offset Y</label><input type="range" id="whiskers-offsetY" min="-0.1"
+                        max="0.1" step="0.01" oninput="updateCfgNum('whiskers','offsetY',this.value)"><span
+                        class="value" id="v-whiskers-offsetY"></span></div>
+            </div>
+            <div class="section">
+                <h2>🐈 Tail</h2>
+                <div class="control-row"><label>Color</label><input type="color" id="tail-color"
+                        oninput="updateCfg('tail','color',this.value)"></div>
+                <div class="control-row"><label>Size</label><input type="range" id="tail-size" min="0.3" max="2"
+                        step="0.05" oninput="updateCfgNum('tail','size',this.value)"><span class="value"
+                        id="v-tail-size"></span></div>
+                <div class="control-row"><label>Length</label><input type="range" id="tail-length" min="0.3" max="2"
+                        step="0.05" oninput="updateCfgNum('tail','length',this.value)"><span class="value"
+                        id="v-tail-length"></span></div>
+                <div class="control-row"><label>Height (Y)</label><input type="range" id="tail-offsetY" min="0.5"
+                        max="1.5" step="0.05" oninput="updateCfgNum('tail','offsetY',this.value)"><span class="value"
+                        id="v-tail-offsetY"></span></div>
+                <div class="control-row"><label>Back (Z)</label><input type="range" id="tail-offsetZ" min="-0.5" max="0"
+                        step="0.05" oninput="updateCfgNum('tail','offsetZ',this.value)"><span class="value"
+                        id="v-tail-offsetZ"></span></div>
+                <div class="control-row"><label>Tilt X</label><input type="range" id="tail-rotX" min="-1" max="1"
+                        step="0.05" oninput="updateCfgNum('tail','rotX',this.value)"><span class="value"
+                        id="v-tail-rotX"></span></div>
+                <div class="control-row"><label>Tilt Z</label><input type="range" id="tail-rotZ" min="0" max="1.5"
+                        step="0.05" oninput="updateCfgNum('tail','rotZ',this.value)"><span class="value"
+                        id="v-tail-rotZ"></span></div>
+            </div>
+            <div class="section">
+                <h2>Left Arm</h2>
+                <div class="control-row"><label>Color</label><input type="color" id="armL-color"
+                        oninput="updateCfg('armL','color',this.value)"></div>
+                <div class="control-row"><label>Length</label><input type="range" id="armL-height" min="0.3" max="1.5"
+                        step="0.05" oninput="updateCfgNum('armL','height',this.value)"><span class="value"
+                        id="v-armL-height"></span></div>
+                <div class="control-row"><label>Thickness</label><input type="range" id="armL-radius" min="0.03"
+                        max="0.15" step="0.01" oninput="updateCfgNum('armL','radius',this.value)"><span class="value"
+                        id="v-armL-radius"></span></div>
+            </div>
+            <div class="section">
+                <h2>Left Leg</h2>
+                <div class="control-row"><label>Color</label><input type="color" id="legL-color"
+                        oninput="updateCfg('legL','color',this.value)"></div>
+                <div class="control-row"><label>Length</label><input type="range" id="legL-height" min="0.3" max="1.2"
+                        step="0.05" oninput="updateCfgNum('legL','height',this.value)"><span class="value"
+                        id="v-legL-height"></span></div>
+                <div class="control-row"><label>Thickness</label><input type="range" id="legL-radius" min="0.03"
+                        max="0.12" step="0.01" oninput="updateCfgNum('legL','radius',this.value)"><span class="value"
+                        id="v-legL-radius"></span></div>
+            </div>
+            <div class="section">
+                <h2>✨ Glow Effects</h2>
+                <div class="control-row"><label>Body Glow</label><input type="color" id="body-emissive"
+                        oninput="updateCfg('body','emissive',this.value)"></div>
+                <div class="control-row"><label>Intensity</label><input type="range" id="body-emissiveIntensity" min="0"
+                        max="2" step="0.1" oninput="updateCfgNum('body','emissiveIntensity',this.value)"><span
+                        class="value" id="v-body-emissiveIntensity"></span></div>
+                <div class="control-row"><label>Head Glow</label><input type="color" id="head-emissive"
+                        oninput="updateCfg('head','emissive',this.value)"></div>
+                <div class="control-row"><label>Intensity</label><input type="range" id="head-emissiveIntensity" min="0"
+                        max="2" step="0.1" oninput="updateCfgNum('head','emissiveIntensity',this.value)"><span
+                        class="value" id="v-head-emissiveIntensity"></span></div>
+            </div>
+        </div>
+
+        <!-- FACE TAB -->
+        <div id="tab-face" class="tab-content">
+            <div class="section">
+                <h2>Face Style</h2>
+                <div class="control-row"><label>Face Type</label><select id="f-faceType"
+                        onchange="updateCfg('features','faceType',this.value)"></select></div>
+                <div class="control-row"><label>Eye Color</label><input type="color" id="f-eyeColor"
+                        oninput="updateCfg('features','eyeColor',this.value)"></div>
+                <div class="control-row"><label>Detail Color</label><input type="color" id="f-detailColor"
+                        oninput="updateCfg('features','detailColor',this.value)"></div>
+            </div>
+            <div class="section">
+                <h2>👁️ Eyes</h2>
+                <div class="control-row"><label>Eye Size</label><input type="range" id="f-eyeSize" min="0.5" max="2"
+                        step="0.05" oninput="updateCfgNum('features','eyeSize',this.value)"><span class="value"
+                        id="v-eyeSize"></span></div>
+                <div class="control-row"><label>Eye Spacing</label><input type="range" id="f-eyeSpacing" min="0.08"
+                        max="0.4" step="0.01" oninput="updateCfgNum('features','eyeSpacing',this.value)"><span
+                        class="value" id="v-eyeSpacing"></span></div>
+                <div class="control-row"><label>Eye Height</label><input type="range" id="f-eyeHeight" min="-0.1"
+                        max="0.15" step="0.01" oninput="updateCfgNum('features','eyeHeight',this.value)"><span
+                        class="value" id="v-eyeHeight"></span></div>
+                <div class="control-row"><label>Pupil Size</label><input type="range" id="f-pupilSize" min="0.1"
+                        max="0.9" step="0.05" oninput="updateCfgNum('features','pupilSize',this.value)"><span
+                        class="value" id="v-pupilSize"></span></div>
+                <div class="control-row"><label>Eye Glow</label><input type="color" id="f-eyeEmissive"
+                        oninput="updateCfg('features','eyeEmissive',this.value)"></div>
+                <div class="control-row"><label>Glow Intensity</label><input type="range" id="f-eyeEmissiveIntensity"
+                        min="0" max="2" step="0.1"
+                        oninput="updateCfgNum('features','eyeEmissiveIntensity',this.value)"><span class="value"
+                        id="v-eyeEmissiveIntensity"></span></div>
+            </div>
+            <div class="section">
+                <h2>👄 Mouth</h2>
+                <div class="control-row"><label>Mouth Width</label><input type="range" id="f-mouthWidth" min="0.04"
+                        max="0.2" step="0.01" oninput="updateCfgNum('features','mouthWidth',this.value)"><span
+                        class="value" id="v-mouthWidth"></span></div>
+                <div class="control-row"><label>Mouth Open</label><input type="range" id="f-mouthOpen" min="0" max="1"
+                        step="0.05" oninput="updateCfgNum('features','mouthOpen',this.value)"><span class="value"
+                        id="v-mouthOpen"></span></div>
+            </div>
+            <div class="section">
+                <h2>😉 Animation</h2>
+                <div class="control-row"><label>Enable Blink</label><input type="checkbox" id="f-enableBlink" checked
+                        onchange="updateCfg('features','enableBlink',this.checked)"></div>
+                <div class="control-row"><label>Blink Rate (s)</label><input type="range" id="f-blinkRate" min="1"
+                        max="10" step="0.5" oninput="updateCfgNum('features','blinkRate',this.value)"><span
+                        class="value" id="v-blinkRate"></span></div>
+            </div>
+            <div class="section">
+                <h2>Fine Tuning</h2>
+                <div class="control-row"><label>Face Size</label><input type="range" id="f-faceScale" min="0.5"
+                        max="1.5" step="0.05" oninput="updateCfgNum('features','faceScale',this.value)"><span
+                        class="value" id="v-faceScale"></span></div>
+                <div class="control-row"><label>Face Y Offset</label><input type="range" id="f-faceOffsetY" min="-0.2"
+                        max="0.2" step="0.01" oninput="updateCfgNum('features','faceOffsetY',this.value)"><span
+                        class="value" id="v-faceOffsetY"></span></div>
+            </div>
+        </div>
+
+        <!-- ATTACHMENTS TAB -->
+        <div id="tab-attachments" class="tab-content">
+            <div class="section">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <button class="add" onclick="addAttachment('box')">+ Box</button>
+                    <button class="add" onclick="addAttachment('cylinder')">+ Cyl</button>
+                    <button class="add" onclick="addAttachment('sphere')">+ Sph</button>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <button class="add" onclick="addAttachment('cone')">+ Cone</button>
+                    <button class="add" onclick="addAttachment('torus')">+ Torus</button>
+                    <button class="add" onclick="addAttachment('capsule')">+ Cap</button>
+                </div>
+            </div>
+            <div class="parts-list" id="att-list"></div>
+            <div id="att-inspector" class="section" style="display:none;">
+                <h2>Edit Attachment</h2>
+                <div style="display:flex; gap:4px; margin-bottom:10px;">
+                    <button class="secondary active" id="btn-trans" onclick="setMode('translate')">Move
+                        (G)</button>
+                    <button class="secondary" id="btn-rot" onclick="setMode('rotate')">Rotate (R)</button>
+                    <button class="secondary" id="btn-scale" onclick="setMode('scale')">Scale (S)</button>
+                </div>
+                <div class="control-row"><label>Type</label><select id="att-type"
+                        onchange="updateSelectedAtt('type', this.value)"></select></div>
+                <div class="control-row"><label>Color</label><input type="color" id="att-color"
+                        oninput="updateSelectedAtt('color', this.value)"></div>
+                <h2>Position</h2>
+                <div class="grid-3">
+                    <div class="mini-input"><label>X</label><input type="number" id="att-x" step="0.05"
+                            onchange="updateFromInputs()"></div>
+                    <div class="mini-input"><label>Y</label><input type="number" id="att-y" step="0.05"
+                            onchange="updateFromInputs()"></div>
+                    <div class="mini-input"><label>Z</label><input type="number" id="att-z" step="0.05"
+                            onchange="updateFromInputs()"></div>
+                </div>
+                <h2>Rotation</h2>
+                <div class="grid-3">
+                    <div class="mini-input"><label>X</label><input type="number" id="att-rotX" step="0.1"
+                            onchange="updateFromInputs()"></div>
+                    <div class="mini-input"><label>Y</label><input type="number" id="att-rotY" step="0.1"
+                            onchange="updateFromInputs()"></div>
+                    <div class="mini-input"><label>Z</label><input type="number" id="att-rotZ" step="0.1"
+                            onchange="updateFromInputs()"></div>
+                </div>
+                <h2>Scale</h2>
+                <div class="grid-3">
+                    <div class="mini-input"><label>X</label><input type="number" id="att-scaleX" step="0.1"
+                            onchange="updateFromInputs()"></div>
+                    <div class="mini-input"><label>Y</label><input type="number" id="att-scaleY" step="0.1"
+                            onchange="updateFromInputs()"></div>
+                    <div class="mini-input"><label>Z</label><input type="number" id="att-scaleZ" step="0.1"
+                            onchange="updateFromInputs()"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SAVE/LOAD SECTION -->
+        <div class="section" style="margin-top:15px;">
+            <h2>💾 Save / Load</h2>
+            <div class="control-row">
+                <label>Name</label>
+                <input type="text" id="save-name" value="MyCharacter" placeholder="Character name">
+            </div>
+            <div style="display:flex; gap:6px; margin-bottom:8px;">
+                <button class="action-btn" style="flex:1; background:linear-gradient(135deg,#11998e,#38ef7d);"
+                    onclick="saveToLocal()">💾 Save</button>
+                <select id="load-slot" style="flex:1;">
+                    <option value="">-- Load Slot --</option>
+                </select>
+                <button class="secondary" style="padding:10px;" onclick="loadFromLocal()">📂</button>
+            </div>
+            <div style="display:flex; gap:6px; margin-bottom:8px;">
+                <button class="secondary" style="flex:1;" onclick="exportFile()">⬇️ Export File</button>
+                <button class="secondary" style="flex:1;" onclick="document.getElementById('import-file').click()">⬆️
+                    Import File</button>
+                <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importFile(event)">
+            </div>
+            <div style="display:flex; gap:6px;">
+                <button class="secondary" style="flex:1;" onclick="deleteSlot()">🗑️ Delete Slot</button>
+                <button class="secondary" style="flex:1;" onclick="clearAllSlots()">🧹 Clear All</button>
+            </div>
+        </div>
+
+        <!-- DEV EXPORT -->
+        <details style="margin-top:10px;">
+            <summary style="cursor:pointer; color:#666; font-size:11px;">🔧 Developer Export</summary>
+            <button class="action-btn" style="margin-top:8px;" onclick="exportCode()">Generate Code
+                JSON</button>
+            <textarea id="output-code" readonly></textarea>
+        </details>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { TransformControls } from 'three/addons/controls/TransformControls.js';
+
+        // ==================== CONFIG ====================
+        const config = {
+            body: { visible: true, color: '#d7a3c6', radius: 0.21, height: 0.9, y: 1.5, roughness: 0.7, metalness: 0.3, emissive: '#000000', emissiveIntensity: 0 },
+            head: { visible: true, color: '#f7f49c', radius: 0.3, y: 1.8, roughness: 0.8, metalness: 0.2, emissive: '#000000', emissiveIntensity: 0 },
+            armL: { visible: true, color: '#8cbab3', radius: 0.06, height: 1.3, x: 0.2, y: 1.5, z: 0, rotZ: 0.76, emissive: '#000000', emissiveIntensity: 0 },
+            armR: { visible: true, color: '#8cbab3', radius: 0.06, height: 1.3, x: -0.2, y: 1.5, z: 0, rotZ: -0.76, emissive: '#000000', emissiveIntensity: 0 },
+            legL: { visible: true, color: '#9f69c3', radius: 0.05, height: 0.9, x: 0.15, y: 0.55, z: 0, rotX: -0.24, emissive: '#000000', emissiveIntensity: 0 },
+            legR: { visible: true, color: '#9f69c3', radius: 0.05, height: 0.9, x: -0.15, y: 0.55, z: 0, rotX: 0.24, emissive: '#000000', emissiveIntensity: 0 },
+            // Ear settings
+            ears: {
+                color: '#f7f49c',
+                innerColor: '#ff99cc',
+                size: 1.0,
+                offsetY: 0.22,
+                offsetX: 0.15,
+                rotZ: 0.4
+            },
+            // Whisker settings
+            whiskers: {
+                color: '#444444',
+                length: 1.0,
+                thickness: 1.0,
+                offsetY: 0.0,
+                spread: 1.0
+            },
+            // Tail settings
+            tail: {
+                color: '#d7a3c6',
+                size: 1.0,
+                length: 1.0,
+                offsetY: 0.9,
+                offsetZ: -0.2,
+                rotX: 0.3,
+                rotZ: 0.7
+            },
+            features: {
+                faceType: 'cat',
+                earType: 'cat',
+                tailType: 'cat',
+                eyeColor: '#000000',
+                detailColor: '#ff99cc',
+                roughness: 0.8,
+                faceScale: 1.0,
+                faceOffsetY: 0.0,
+                eyeSize: 1.0,
+                eyeSpacing: 0.2,
+                eyeHeight: 0.05,
+                pupilSize: 0.4,
+                mouthWidth: 0.1,
+                mouthOpen: 0,
+                enableBlink: true,
+                blinkRate: 4,
+                eyeEmissive: '#000000',
+                eyeEmissiveIntensity: 0
+            },
+            attachments: []
+        };
+
+        const EXTRAS = {
+            faceTypes: ['none', 'cat', 'happy', 'angry', 'robot', 'cyclops'],
+            earTypes: ['none', 'cat', 'bear', 'bunny', 'horns'],
+            tailTypes: ['none', 'cat', 'nub', 'demon'],
+            shapeTypes: ['box', 'sphere', 'capsule', 'cylinder', 'cone', 'torus']
+        };
+
+        let scene, camera, renderer, controls, transformControls;
+        let characterGroup, attGroup;
+        let selectedIndex = -1;
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x333333);
+            scene.add(new THREE.GridHelper(20, 20, 0x555555, 0x444444));
+
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 }));
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+            dir.position.set(5, 10, 7);
+            dir.castShadow = true;
+            scene.add(dir);
+
+            camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(2, 2, 4);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 1.2, 0);
+            controls.update();
+
+            transformControls = new TransformControls(camera, renderer.domElement);
+            transformControls.addEventListener('dragging-changed', e => controls.enabled = !e.value);
+            transformControls.addEventListener('change', () => {
+                if (transformControls.object && selectedIndex > -1) {
+                    const mesh = transformControls.object;
+                    const att = config.attachments[selectedIndex];
+                    att.x = mesh.position.x; att.y = mesh.position.y; att.z = mesh.position.z;
+                    att.rotX = mesh.rotation.x; att.rotY = mesh.rotation.y; att.rotZ = mesh.rotation.z;
+                    att.scaleX = mesh.scale.x; att.scaleY = mesh.scale.y; att.scaleZ = mesh.scale.z;
+                    syncInputs();
+                }
+            });
+            scene.add(transformControls);
+
+            characterGroup = new THREE.Group();
+            scene.add(characterGroup);
+
+            // Populate Dropdowns
+            const fillSel = (id, list) => {
+                const s = document.getElementById(id);
+                list.forEach(i => { const o = document.createElement('option'); o.value = i; o.text = i.toUpperCase(); s.add(o); });
+            };
+            fillSel('f-faceType', EXTRAS.faceTypes);
+            fillSel('f-earType', EXTRAS.earTypes);
+            fillSel('f-tailType', EXTRAS.tailTypes);
+            fillSel('att-type', EXTRAS.shapeTypes);
+
+            updateUIValues();
+            renderCharacter();
+
+            renderer.setAnimationLoop(() => {
+                updateAnimations();
+                renderer.render(scene, camera);
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+
+            renderer.domElement.addEventListener('pointerdown', onPointerDown);
+            window.addEventListener('keydown', e => {
+                if (e.key === 'g') setMode('translate');
+                if (e.key === 'r') setMode('rotate');
+                if (e.key === 's') setMode('scale');
+            });
+        }
+
+        // ==================== RENDERING ====================
+        function renderCharacter() {
+            transformControls.detach();
+            while (characterGroup.children.length) characterGroup.remove(characterGroup.children[0]);
+
+            const c = config;
+            const f = c.features;
+            const add = (obj, name) => { obj.castShadow = true; if (name) obj.name = name; characterGroup.add(obj); return obj; };
+
+            // BODY
+            if (c.body.visible) {
+                const bodyMat = new THREE.MeshStandardMaterial({
+                    color: c.body.color,
+                    roughness: c.body.roughness,
+                    metalness: c.body.metalness,
+                    emissive: c.body.emissive || '#000000',
+                    emissiveIntensity: c.body.emissiveIntensity || 0
+                });
+                const body = new THREE.Mesh(new THREE.CapsuleGeometry(c.body.radius, c.body.height, 4, 16), bodyMat);
+                body.position.y = c.body.y;
+                add(body, 'body');
+            }
+
+            // HEAD
+            if (c.head.visible) {
+                const headMat = new THREE.MeshStandardMaterial({
+                    color: c.head.color,
+                    roughness: c.head.roughness,
+                    metalness: c.head.metalness,
+                    emissive: c.head.emissive || '#000000',
+                    emissiveIntensity: c.head.emissiveIntensity || 0
+                });
+                const head = new THREE.Mesh(new THREE.SphereGeometry(c.head.radius, 32, 24), headMat);
+                head.position.y = c.head.y;
+                add(head, 'head');
+
+                // EARS - use config.ears for all params
+                const earCfg = c.ears;
+                const earSize = earCfg.size || 1.0;
+                const earOffsetY = earCfg.offsetY || 0.22;
+                const earOffsetX = earCfg.offsetX || 0.15;
+                const earRotZ = earCfg.rotZ || 0.4;
+
+                if (f.earType === 'cat') {
+                    const earGeo = new THREE.ConeGeometry(0.14 * earSize, 0.35 * earSize, 4);
+                    const earMat = new THREE.MeshStandardMaterial({ color: earCfg.color, roughness: 0.9 });
+                    const innerMat = new THREE.MeshStandardMaterial({ color: earCfg.innerColor });
+                    [-1, 1].forEach(side => {
+                        const x = side * earOffsetX;
+                        const ear = new THREE.Mesh(earGeo, earMat);
+                        ear.position.set(x, c.head.y + earOffsetY, 0.05);
+                        ear.rotation.z = side * -earRotZ;
+                        add(ear);
+                        const inner = new THREE.Mesh(new THREE.ConeGeometry(0.08 * earSize, 0.25 * earSize, 4), innerMat);
+                        inner.position.set(x, c.head.y + earOffsetY, 0.10);
+                        inner.rotation.z = side * -earRotZ;
+                        add(inner);
+                    });
+                } else if (f.earType === 'bear') {
+                    const earGeo = new THREE.CylinderGeometry(0.12 * earSize, 0.12 * earSize, 0.05, 32);
+                    const earMat = new THREE.MeshStandardMaterial({ color: earCfg.color });
+                    [-1, 1].forEach(side => {
+                        const ear = new THREE.Mesh(earGeo, earMat);
+                        ear.position.set(side * earOffsetX * 1.3, c.head.y + earOffsetY + 0.03, 0);
+                        ear.rotation.x = Math.PI / 2;
+                        add(ear);
+                    });
+                } else if (f.earType === 'bunny') {
+                    const earGeo = new THREE.CapsuleGeometry(0.08 * earSize, 0.5 * earSize, 4, 8);
+                    const earMat = new THREE.MeshStandardMaterial({ color: earCfg.color });
+                    [-1, 1].forEach(side => {
+                        const ear = new THREE.Mesh(earGeo, earMat);
+                        ear.position.set(side * earOffsetX * 0.8, c.head.y + earOffsetY + 0.18, 0);
+                        ear.rotation.z = side * -earRotZ * 0.5;
+                        add(ear);
+                    });
+                } else if (f.earType === 'horns') {
+                    const hornGeo = new THREE.ConeGeometry(0.06 * earSize, 0.25 * earSize, 8);
+                    const hornMat = new THREE.MeshStandardMaterial({ color: earCfg.color, metalness: 0.5, roughness: 0.2 });
+                    [-1, 1].forEach(side => {
+                        const horn = new THREE.Mesh(hornGeo, hornMat);
+                        horn.position.set(side * earOffsetX, c.head.y + earOffsetY + 0.03, 0.1);
+                        horn.rotation.z = side * earRotZ * 0.75;
+                        add(horn);
+                    });
+                }
+
+                // FACE GROUP
+                const faceGroup = new THREE.Group();
+                faceGroup.name = 'faceGroup';
+                faceGroup.position.set(0, c.head.y + (f.faceOffsetY || 0), 0);
+                faceGroup.scale.setScalar(f.faceScale || 1.0);
+                characterGroup.add(faceGroup);
+
+                // Eye material with emissive
+                const eyeMat = new THREE.MeshStandardMaterial({
+                    color: f.eyeColor,
+                    roughness: 0.1,
+                    metalness: 0.8,
+                    emissive: f.eyeEmissive || '#000000',
+                    emissiveIntensity: f.eyeEmissiveIntensity || 0
+                });
+
+                // Eye params from config
+                const eyeBaseSize = 0.06;
+                const eyeSize = f.eyeSize || 1.0;
+                const eyeSpacing = f.eyeSpacing || 0.2;
+                const eyeHeight = f.eyeHeight || 0.05;
+                const pupilSize = f.pupilSize || 0.4;
+                const mouthOpen = f.mouthOpen || 0;
+                const mouthWidth = f.mouthWidth || 0.1;
+
+                if (f.faceType === 'cat') {
+                    // Eyes with pupils
+                    [-1, 1].forEach(side => {
+                        const x = side * (eyeSpacing / 2);
+                        // Outer eye (sclera/iris)
+                        const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeBaseSize * eyeSize), eyeMat);
+                        eye.position.set(x, eyeHeight, 0.26);
+                        eye.scale.set(1, 1.4, 0.7);
+                        eye.name = 'eye';
+                        faceGroup.add(eye);
+                        // Pupil
+                        const pupil = new THREE.Mesh(
+                            new THREE.SphereGeometry(eyeBaseSize * eyeSize * pupilSize),
+                            new THREE.MeshBasicMaterial({ color: '#000000' })
+                        );
+                        pupil.position.set(x, eyeHeight, 0.28);
+                        pupil.scale.set(1, 1.2, 0.5);
+                        pupil.name = 'pupil';
+                        faceGroup.add(pupil);
+                    });
+                    // Nose
+                    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05), new THREE.MeshStandardMaterial({ color: f.detailColor }));
+                    nose.position.set(0, -0.02, 0.30);
+                    nose.scale.set(1, 0.7, 0.6);
+                    faceGroup.add(nose);
+                    // Mouth (opens based on mouthOpen)
+                    if (mouthOpen > 0.1) {
+                        const mouth = new THREE.Mesh(
+                            new THREE.SphereGeometry(mouthWidth),
+                            new THREE.MeshBasicMaterial({ color: '#220000' })
+                        );
+                        mouth.position.set(0, -0.08, 0.28);
+                        mouth.scale.set(1, 0.3 + mouthOpen * 0.7, 0.4);
+                        mouth.name = 'mouth';
+                        faceGroup.add(mouth);
+                    }
+                    // Whiskers - use config.whiskers
+                    const wCfg = c.whiskers;
+                    const wLen = 0.4 * (wCfg.length || 1.0);
+                    const wThick = 0.004 * (wCfg.thickness || 1.0);
+                    const wSpread = wCfg.spread || 1.0;
+                    const wOffY = wCfg.offsetY || 0;
+                    const whisker = new THREE.Mesh(
+                        new THREE.CylinderGeometry(wThick, wThick, wLen),
+                        new THREE.MeshBasicMaterial({ color: wCfg.color })
+                    );
+                    // Left and right whiskers with spread control
+                    [
+                        [-0.22 * wSpread, 0.02 + wOffY, 0.3],
+                        [-0.24 * wSpread, -0.01 + wOffY, 0.1],
+                        [0.22 * wSpread, 0.02 + wOffY, -0.3],
+                        [0.24 * wSpread, -0.01 + wOffY, -0.1]
+                    ].forEach(([wx, wy, wr]) => {
+                        const w = whisker.clone();
+                        w.position.set(wx, wy, 0.25);
+                        w.rotation.z = wr;
+                        w.scale.set(1, 1, 1);
+                        faceGroup.add(w);
+                    });
+                } else if (f.faceType === 'happy') {
+                    // Eyes
+                    [-1, 1].forEach(side => {
+                        const x = side * (eyeSpacing / 2);
+                        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05 * eyeSize), eyeMat);
+                        eye.position.set(x, eyeHeight, 0.28);
+                        eye.name = 'eye';
+                        faceGroup.add(eye);
+                    });
+                    // Smile (scales with mouthWidth)
+                    const smile = new THREE.Mesh(new THREE.TorusGeometry(mouthWidth, 0.015, 8, 16, Math.PI), new THREE.MeshBasicMaterial({ color: '#000' }));
+                    smile.position.set(0, -0.02 - mouthOpen * 0.05, 0.28);
+                    smile.rotation.z = Math.PI;
+                    faceGroup.add(smile);
+                    // Blush
+                    const blushMat = new THREE.MeshStandardMaterial({ color: f.detailColor, transparent: true, opacity: 0.5 });
+                    [-0.18, 0.18].forEach(x => {
+                        const blush = new THREE.Mesh(new THREE.CircleGeometry(0.06), blushMat);
+                        blush.position.set(x, -0.05, 0.26);
+                        blush.rotation.y = x < 0 ? -0.5 : 0.5;
+                        faceGroup.add(blush);
+                    });
+                } else if (f.faceType === 'angry') {
+                    // Eyes
+                    [-1, 1].forEach(side => {
+                        const x = side * (eyeSpacing / 2);
+                        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.04 * eyeSize), eyeMat);
+                        eye.position.set(x, eyeHeight, 0.28);
+                        eye.name = 'eye';
+                        faceGroup.add(eye);
+                        // Eyebrows
+                        const brow = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 0.02), new THREE.MeshBasicMaterial({ color: '#000' }));
+                        brow.position.set(x, eyeHeight + 0.05, 0.30);
+                        brow.rotation.z = side < 0 ? -0.3 : 0.3;
+                        faceGroup.add(brow);
+                    });
+                    // Mouth (angry line, opens if mouthOpen > 0)
+                    const mouthH = 0.02 + mouthOpen * 0.04;
+                    const mouth = new THREE.Mesh(new THREE.BoxGeometry(mouthWidth, mouthH, 0.01), new THREE.MeshBasicMaterial({ color: '#000' }));
+                    mouth.position.set(0, -0.08, 0.30);
+                    mouth.name = 'mouth';
+                    faceGroup.add(mouth);
+                } else if (f.faceType === 'cyclops') {
+                    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12 * eyeSize), eyeMat);
+                    eye.position.set(0, eyeHeight, 0.25);
+                    eye.name = 'eye';
+                    faceGroup.add(eye);
+                    // Pupil
+                    const pupil = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.12 * eyeSize * pupilSize),
+                        new THREE.MeshBasicMaterial({ color: '#000000' })
+                    );
+                    pupil.position.set(0, eyeHeight, 0.30);
+                    pupil.name = 'pupil';
+                    faceGroup.add(pupil);
+                } else if (f.faceType === 'robot') {
+                    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.12, 0.1), new THREE.MeshStandardMaterial({ color: '#333' }));
+                    visor.position.set(0, eyeHeight, 0.25);
+                    faceGroup.add(visor);
+                    const glow = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.05, 0.02), new THREE.MeshBasicMaterial({
+                        color: f.eyeEmissive || '#00ffcc',
+                        transparent: true,
+                        opacity: 0.9
+                    }));
+                    glow.position.set(0, eyeHeight, 0.31);
+                    glow.name = 'visor_glow';
+                    faceGroup.add(glow);
+                }
+            }
+
+            // LIMBS
+            ['armL', 'armR', 'legL', 'legR'].forEach(key => {
+                if (!c[key].visible) return;
+                const cfg = c[key];
+                const geo = new THREE.CapsuleGeometry(cfg.radius, cfg.height, 4, 16);
+                const mat = new THREE.MeshStandardMaterial({ color: cfg.color, roughness: c.body.roughness, metalness: c.body.metalness });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(cfg.x || 0, cfg.y || 0, cfg.z || 0);
+                if (cfg.rotZ) mesh.rotation.z = cfg.rotZ;
+                if (cfg.rotX) mesh.rotation.x = cfg.rotX;
+                add(mesh, key);
+            });
+
+            // TAIL - use config.tail for all params
+            const tCfg = c.tail;
+            const tSize = tCfg.size || 1.0;
+            const tLen = tCfg.length || 1.0;
+            const tOffY = tCfg.offsetY || 0.9;
+            const tOffZ = tCfg.offsetZ || -0.2;
+            const tRotX = tCfg.rotX || 0.3;
+            const tRotZ = tCfg.rotZ || 0.7;
+            const tailMat = new THREE.MeshStandardMaterial({ color: tCfg.color, roughness: 0.9 });
+
+            if (f.tailType === 'cat') {
+                const tail = new THREE.Group();
+                tail.name = 'tail';
+                let y = 1.0 * tLen;
+                for (let i = 0; i < 6; i++) {
+                    const seg = new THREE.Mesh(
+                        new THREE.CapsuleGeometry((0.09 - i * 0.01) * tSize, 0.35 * tLen, 4, 8),
+                        tailMat
+                    );
+                    seg.position.y = y;
+                    y -= 0.25 * tLen;
+                    tail.add(seg);
+                }
+                tail.position.set(0, tOffY, tOffZ + 0.2);
+                tail.rotation.x = tRotX;
+                tail.rotation.z = tRotZ;
+                add(tail);
+            } else if (f.tailType === 'nub') {
+                const nub = new THREE.Mesh(new THREE.SphereGeometry(0.12 * tSize), tailMat);
+                nub.position.set(0, tOffY, tOffZ);
+                add(nub, 'tail');
+            } else if (f.tailType === 'demon') {
+                const tail = new THREE.Group();
+                tail.name = 'tail';
+                const line = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.03 * tSize, 0.06 * tSize, 0.8 * tLen),
+                    tailMat
+                );
+                line.position.y = 0.4 * tLen;
+                line.rotation.x = 0.5;
+                tail.add(line);
+                const tip = new THREE.Mesh(
+                    new THREE.ConeGeometry(0.1 * tSize, 0.2 * tLen, 4),
+                    tailMat
+                );
+                tip.position.set(0, 0.8 * tLen, -0.2 * tLen);
+                tip.rotation.x = -0.5;
+                tail.add(tip);
+                tail.position.set(0, tOffY - 0.1, tOffZ + 0.1);
+                tail.rotation.x = tRotX;
+                tail.rotation.z = tRotZ;
+                add(tail);
+            }
+
+            // ATTACHMENTS
+            attGroup = new THREE.Group();
+            characterGroup.add(attGroup);
+
+            c.attachments.forEach((att, idx) => {
+                let geo;
+                switch (att.type) {
+                    case 'box': geo = new THREE.BoxGeometry(0.2, 0.2, 0.2); break;
+                    case 'sphere': geo = new THREE.SphereGeometry(0.15, 16, 16); break;
+                    case 'capsule': geo = new THREE.CapsuleGeometry(0.1, 0.4, 4, 8); break;
+                    case 'cylinder': geo = new THREE.CylinderGeometry(0.05, 0.05, 0.4, 16); break;
+                    case 'cone': geo = new THREE.ConeGeometry(0.1, 0.4, 16); break;
+                    case 'torus': geo = new THREE.TorusGeometry(0.15, 0.03, 8, 16); break;
+                    default: geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+                }
+                const mat = new THREE.MeshStandardMaterial({ color: att.color, roughness: 0.5, metalness: 0.2 });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(att.x, att.y, att.z);
+                mesh.rotation.set(att.rotX, att.rotY, att.rotZ);
+                mesh.scale.set(att.scaleX, att.scaleY, att.scaleZ);
+                mesh.userData.attIndex = idx;
+                mesh.castShadow = true;
+                attGroup.add(mesh);
+
+                if (idx === selectedIndex) transformControls.attach(mesh);
+            });
+        }
+
+        function updateAnimations() {
+            const time = Date.now() * 0.001; // seconds
+            const f = config.features;
+
+            // Tail animation
+            const tail = characterGroup.getObjectByName('tail');
+            if (tail) {
+                if (f.tailType === 'cat') tail.rotation.z = 0.7 + Math.sin(time * 3) * 0.15;
+                if (f.tailType === 'demon') tail.rotation.z = 0.5 + Math.sin(time * 1.5) * 0.1;
+            }
+
+            // Visor glow animation
+            const visor = characterGroup.getObjectByName('visor_glow');
+            if (visor && f.faceType === 'robot') {
+                visor.material.opacity = 0.7 + Math.sin(time * 5) * 0.2;
+            }
+
+            // Eye blinking
+            if (f.enableBlink && f.faceType !== 'robot' && f.faceType !== 'none') {
+                const faceGroup = characterGroup.getObjectByName('faceGroup');
+                if (faceGroup) {
+                    const blinkCycle = time / (f.blinkRate || 4);
+                    const blinkPhase = blinkCycle % 1;
+                    // Blink happens in a brief window (0.9-1.0 of cycle)
+                    const isBlinking = blinkPhase > 0.95;
+                    const blinkScale = isBlinking ? 0.1 : 1.0;
+
+                    faceGroup.traverse(child => {
+                        if (child.name === 'eye' || child.name === 'pupil') {
+                            child.scale.y = child.name === 'eye' ? 1.4 * blinkScale : 1.2 * blinkScale;
+                        }
+                    });
+                }
+            }
+        }
+
+        // ==================== UI ====================
+        window.switchTab = (tab) => {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tabs button').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            event.target.classList.add('active');
+        };
+
+        window.updateCfg = (section, key, val) => {
+            if (section === 'features') config.features[key] = val;
+            else config[section][key] = val;
+            // Mirror arms/legs
+            if (section === 'armL') config.armR[key] = val;
+            if (section === 'legL') config.legR[key] = val;
+            renderCharacter();
+        };
+
+        window.updateCfgNum = (section, key, val) => {
+            const numVal = parseFloat(val);
+            if (section === 'features') config.features[key] = numVal;
+            else config[section][key] = numVal;
+            // Mirror arms/legs
+            if (section === 'armL') config.armR[key] = numVal;
+            if (section === 'legL') config.legR[key] = numVal;
+            // Update value display
+            const vSpan = document.getElementById('v-' + (section === 'features' ? key : section + '-' + key));
+            if (vSpan) vSpan.textContent = numVal.toFixed(2);
+            renderCharacter();
+        };
+
+        window.addAttachment = (type) => {
+            config.attachments.push({
+                type: type, color: '#ff0000',
+                x: 0, y: config.head.y + 0.5, z: 0.3,
+                rotX: 0, rotY: 0, rotZ: 0,
+                scaleX: 1, scaleY: 1, scaleZ: 1
+            });
+            rebuildAttList();
+            renderCharacter();
+            selectAttachment(config.attachments.length - 1);
+        };
+
+        window.selectAttachment = (index) => {
+            selectedIndex = index;
+            rebuildAttList();
+            renderCharacter();
+            const insp = document.getElementById('att-inspector');
+            if (index > -1) { insp.style.display = 'block'; syncInputs(); }
+            else { insp.style.display = 'none'; transformControls.detach(); }
+        };
+
+        window.removeAttachment = (e, index) => {
+            e.stopPropagation();
+            config.attachments.splice(index, 1);
+            if (selectedIndex === index) selectedIndex = -1;
+            else if (selectedIndex > index) selectedIndex--;
+            rebuildAttList();
+            renderCharacter();
+        };
+
+        function rebuildAttList() {
+            const list = document.getElementById('att-list');
+            list.innerHTML = '';
+            config.attachments.forEach((att, i) => {
+                const div = document.createElement('div');
+                div.className = `part-item ${i === selectedIndex ? 'selected' : ''}`;
+                div.innerHTML = `<span>${i + 1}. ${att.type.toUpperCase()}</span> <span class="del-btn" onclick="removeAttachment(event, ${i})">X</span>`;
+                div.onclick = () => selectAttachment(i);
+                list.appendChild(div);
+            });
+        }
+
+        function syncInputs() {
+            if (selectedIndex === -1) return;
+            const att = config.attachments[selectedIndex];
+            const set = (id, val) => document.getElementById(id).value = val;
+            const setNum = (id, val) => document.getElementById(id).value = parseFloat(val).toFixed(2);
+            set('att-type', att.type);
+            set('att-color', att.color);
+            setNum('att-x', att.x); setNum('att-y', att.y); setNum('att-z', att.z);
+            setNum('att-rotX', att.rotX); setNum('att-rotY', att.rotY); setNum('att-rotZ', att.rotZ);
+            setNum('att-scaleX', att.scaleX); setNum('att-scaleY', att.scaleY); setNum('att-scaleZ', att.scaleZ);
+        }
+
+        window.updateFromInputs = () => {
+            if (selectedIndex === -1) return;
+            const att = config.attachments[selectedIndex];
+            const get = (id) => parseFloat(document.getElementById(id).value);
+            att.x = get('att-x'); att.y = get('att-y'); att.z = get('att-z');
+            att.rotX = get('att-rotX'); att.rotY = get('att-rotY'); att.rotZ = get('att-rotZ');
+            att.scaleX = get('att-scaleX'); att.scaleY = get('att-scaleY'); att.scaleZ = get('att-scaleZ');
+            renderCharacter();
+        };
+
+        window.updateSelectedAtt = (key, val) => {
+            if (selectedIndex === -1) return;
+            config.attachments[selectedIndex][key] = val;
+            renderCharacter();
+        };
+
+        window.setMode = (mode) => {
+            transformControls.setMode(mode);
+            ['trans', 'rot', 'scale'].forEach(k => document.getElementById('btn-' + k).classList.remove('active'));
+            document.getElementById(mode === 'translate' ? 'btn-trans' : (mode === 'rotate' ? 'btn-rot' : 'btn-scale')).classList.add('active');
+        };
+
+        window.exportCode = () => {
+            const code = `/* Generated Character */\nconst c = ${JSON.stringify(config, null, 4)};`;
+            document.getElementById('output-code').value = code;
+        };
+
+        function onPointerDown(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            if (attGroup) {
+                const intersects = raycaster.intersectObjects(attGroup.children);
+                if (intersects.length > 0) {
+                    const idx = intersects[0].object.userData.attIndex;
+                    if (idx !== undefined) selectAttachment(idx);
+                }
+            }
+        }
+
+        function updateUIValues() {
+            const f = config.features;
+            // Face style
+            document.getElementById('f-faceType').value = f.faceType;
+            document.getElementById('f-earType').value = f.earType;
+            document.getElementById('f-tailType').value = f.tailType;
+            document.getElementById('f-eyeColor').value = f.eyeColor;
+            document.getElementById('f-detailColor').value = f.detailColor;
+            document.getElementById('f-faceScale').value = f.faceScale;
+            document.getElementById('f-faceOffsetY').value = f.faceOffsetY;
+            // New eye params
+            document.getElementById('f-eyeSize').value = f.eyeSize;
+            document.getElementById('f-eyeSpacing').value = f.eyeSpacing;
+            document.getElementById('f-eyeHeight').value = f.eyeHeight;
+            document.getElementById('f-pupilSize').value = f.pupilSize;
+            document.getElementById('f-eyeEmissive').value = f.eyeEmissive;
+            document.getElementById('f-eyeEmissiveIntensity').value = f.eyeEmissiveIntensity;
+            // Mouth
+            document.getElementById('f-mouthWidth').value = f.mouthWidth;
+            document.getElementById('f-mouthOpen').value = f.mouthOpen;
+            // Animation
+            document.getElementById('f-enableBlink').checked = f.enableBlink;
+            document.getElementById('f-blinkRate').value = f.blinkRate;
+            // Body
+            document.getElementById('body-color').value = config.body.color;
+            document.getElementById('body-height').value = config.body.height;
+            document.getElementById('body-radius').value = config.body.radius;
+            document.getElementById('head-color').value = config.head.color;
+            document.getElementById('head-radius').value = config.head.radius;
+            document.getElementById('armL-color').value = config.armL.color;
+            document.getElementById('armL-height').value = config.armL.height;
+            document.getElementById('armL-radius').value = config.armL.radius;
+            document.getElementById('legL-color').value = config.legL.color;
+            document.getElementById('legL-height').value = config.legL.height;
+            document.getElementById('legL-radius').value = config.legL.radius;
+            // Emissive
+            document.getElementById('body-emissive').value = config.body.emissive;
+            document.getElementById('body-emissiveIntensity').value = config.body.emissiveIntensity;
+            document.getElementById('head-emissive').value = config.head.emissive;
+            document.getElementById('head-emissiveIntensity').value = config.head.emissiveIntensity;
+            // Ears
+            document.getElementById('ears-color').value = config.ears.color;
+            document.getElementById('ears-innerColor').value = config.ears.innerColor;
+            document.getElementById('ears-size').value = config.ears.size;
+            document.getElementById('ears-offsetY').value = config.ears.offsetY;
+            document.getElementById('ears-offsetX').value = config.ears.offsetX;
+            document.getElementById('ears-rotZ').value = config.ears.rotZ;
+            // Whiskers
+            document.getElementById('whiskers-color').value = config.whiskers.color;
+            document.getElementById('whiskers-length').value = config.whiskers.length;
+            document.getElementById('whiskers-thickness').value = config.whiskers.thickness;
+            document.getElementById('whiskers-spread').value = config.whiskers.spread;
+            document.getElementById('whiskers-offsetY').value = config.whiskers.offsetY;
+            // Tail
+            document.getElementById('tail-color').value = config.tail.color;
+            document.getElementById('tail-size').value = config.tail.size;
+            document.getElementById('tail-length').value = config.tail.length;
+            document.getElementById('tail-offsetY').value = config.tail.offsetY;
+            document.getElementById('tail-offsetZ').value = config.tail.offsetZ;
+            document.getElementById('tail-rotX').value = config.tail.rotX;
+            document.getElementById('tail-rotZ').value = config.tail.rotZ;
+            // Set value spans
+            const valSpans = [
+                'body-height', 'body-radius', 'head-radius', 'armL-height', 'armL-radius',
+                'legL-height', 'legL-radius', 'faceScale', 'faceOffsetY',
+                'eyeSize', 'eyeSpacing', 'eyeHeight', 'pupilSize', 'eyeEmissiveIntensity',
+                'mouthWidth', 'mouthOpen', 'blinkRate',
+                'body-emissiveIntensity', 'head-emissiveIntensity',
+                'ears-size', 'ears-offsetY', 'ears-offsetX', 'ears-rotZ',
+                'whiskers-length', 'whiskers-thickness', 'whiskers-spread', 'whiskers-offsetY',
+                'tail-size', 'tail-length', 'tail-offsetY', 'tail-offsetZ', 'tail-rotX', 'tail-rotZ'
+            ];
+            valSpans.forEach(id => {
+                const inputId = id.includes('-') ? id : 'f-' + id;
+                const sp = document.getElementById('v-' + id);
+                const inp = document.getElementById(inputId);
+                if (sp && inp) sp.textContent = parseFloat(inp.value).toFixed(2);
+            });
+        }
+
+        // ==================== SAVE / LOAD SYSTEM ====================
+        const STORAGE_KEY = 'characterEditor_saves';
+
+        function getSaves() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            return raw ? JSON.parse(raw) : {};
+        }
+
+        function setSaves(saves) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(saves));
+        }
+
+        function refreshLoadSlots() {
+            const select = document.getElementById('load-slot');
+            select.innerHTML = '<option value="">-- Load Slot --</option>';
+            const saves = getSaves();
+            Object.keys(saves).forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                select.appendChild(opt);
+            });
+        }
+
+        window.saveToLocal = () => {
+            const name = document.getElementById('save-name').value.trim() || 'Unnamed';
+            const saves = getSaves();
+            saves[name] = {
+                type: 'character',
+                version: '1.0',
+                name: name,
+                savedAt: new Date().toISOString(),
+                data: JSON.parse(JSON.stringify(config)) // Deep clone
+            };
+            setSaves(saves);
+            refreshLoadSlots();
+            alert(`✅ Saved "${name}" to browser!`);
+        };
+
+        window.loadFromLocal = () => {
+            const name = document.getElementById('load-slot').value;
+            if (!name) { alert('Select a slot to load'); return; }
+            const saves = getSaves();
+            if (!saves[name]) { alert('Slot not found'); return; }
+
+            // Load config
+            const loaded = saves[name].data;
+            Object.assign(config.body, loaded.body);
+            Object.assign(config.head, loaded.head);
+            Object.assign(config.armL, loaded.armL);
+            Object.assign(config.armR, loaded.armR);
+            Object.assign(config.legL, loaded.legL);
+            Object.assign(config.legR, loaded.legR);
+            Object.assign(config.features, loaded.features);
+            config.attachments = loaded.attachments || [];
+
+            document.getElementById('save-name').value = name;
+            selectedIndex = -1;
+            updateUIValues();
+            rebuildAttList();
+            renderCharacter();
+            alert(`✅ Loaded "${name}"!`);
+        };
+
+        window.exportFile = () => {
+            const name = document.getElementById('save-name').value.trim() || 'character';
+            const exportData = {
+                type: 'character',
+                version: '1.0',
+                name: name,
+                exportedAt: new Date().toISOString(),
+                data: config
+            };
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `character_${name.replace(/\s+/g, '_')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+
+        window.importFile = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.type !== 'character') {
+                        alert('⚠️ This file is not a character file!');
+                        return;
+                    }
+                    const loaded = imported.data;
+                    Object.assign(config.body, loaded.body);
+                    Object.assign(config.head, loaded.head);
+                    Object.assign(config.armL, loaded.armL);
+                    Object.assign(config.armR, loaded.armR);
+                    Object.assign(config.legL, loaded.legL);
+                    Object.assign(config.legR, loaded.legR);
+                    Object.assign(config.features, loaded.features);
+                    config.attachments = loaded.attachments || [];
+
+                    document.getElementById('save-name').value = imported.name || 'Imported';
+                    selectedIndex = -1;
+                    updateUIValues();
+                    rebuildAttList();
+                    renderCharacter();
+                    alert(`✅ Imported "${imported.name}"!`);
+                } catch (err) {
+                    alert('⚠️ Failed to parse file: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset so same file can be imported again
+        };
+
+        window.deleteSlot = () => {
+            const name = document.getElementById('load-slot').value;
+            if (!name) { alert('Select a slot to delete'); return; }
+            if (!confirm(`Delete "${name}"?`)) return;
+            const saves = getSaves();
+            delete saves[name];
+            setSaves(saves);
+            refreshLoadSlots();
+            alert(`🗑️ Deleted "${name}"`);
+        };
+
+        window.clearAllSlots = () => {
+            if (!confirm('Clear ALL saved characters? This cannot be undone!')) return;
+            localStorage.removeItem(STORAGE_KEY);
+            refreshLoadSlots();
+            alert('🧹 All slots cleared');
+        };
+
+        // Initialize slots on load
+        setTimeout(refreshLoadSlots, 100);
+
+        init();
+    </script>
+</body>
+
+</html>

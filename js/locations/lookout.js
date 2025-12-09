@@ -383,6 +383,7 @@ export async function preloadLookout() {
 
     const textureLoader = new THREE.TextureLoader();
     const fbxLoader = new FBXLoader();
+    fbxLoader.setResourcePath('extras/tower/textures/'); // ensure FBX texture lookups hit the textures folder
 
     return new Promise((resolve) => {
         // Load textures

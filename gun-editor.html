@@ -1,0 +1,2018 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔫 Gun Editor</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #1a1a2e;
+            font-family: 'Segoe UI', sans-serif;
+            color: #eee;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: calc(100% - 400px);
+            height: 100%;
+        }
+
+        #controls {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 400px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            overflow-y: auto;
+            padding: 20px;
+            border-left: 2px solid #333;
+        }
+
+        h1 {
+            margin: 0 0 5px 0;
+            font-size: 26px;
+            background: linear-gradient(90deg, #ff6b6b, #feca57);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 13px;
+            margin: 15px 0 8px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        h2:hover {
+            color: #aaa;
+        }
+
+        .section {
+            background: #1a1a2e;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #333;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .control-row label {
+            flex: 0 0 70px;
+            color: #888;
+        }
+
+        .control-row input[type="number"] {
+            flex: 1;
+            background: #2a2a3e;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 6px 8px;
+            border-radius: 4px;
+            width: 60px;
+        }
+
+        .control-row input[type="text"] {
+            flex: 1;
+            background: #2a2a3e;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 6px 8px;
+            border-radius: 4px;
+        }
+
+        .control-row input[type="color"] {
+            width: 40px;
+            height: 28px;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+
+        .control-row input[type="range"] {
+            flex: 1;
+            accent-color: #ff6b6b;
+        }
+
+        .control-row .value {
+            width: 35px;
+            text-align: right;
+            color: #aaa;
+            font-size: 11px;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            background: #2a2a3e;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+            width: 100%;
+            margin-bottom: 6px;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button.secondary {
+            background: #333;
+            font-size: 12px;
+            padding: 8px;
+        }
+
+        button.secondary:hover {
+            background: #444;
+            box-shadow: none;
+            transform: none;
+        }
+
+        button.secondary.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+
+        button.add {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .btn-row button {
+            flex: 1;
+        }
+
+        .parts-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+
+        .part-item {
+            background: #2a2a3e;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.15s;
+        }
+
+        .part-item:hover {
+            border-color: #666;
+        }
+
+        .part-item.selected {
+            border-color: #ff6b6b;
+            background: #3a2a3e;
+        }
+
+        .part-item.multi-selected {
+            border-color: #6b9fff;
+            background: #2a3a4e;
+        }
+
+        .part-item .name {
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .part-item .type {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .part-item .actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .part-item .actions button {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            margin: 0;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+
+        .part-item .actions .dup {
+            background: #4a6fa5;
+        }
+
+        .part-item .actions .del {
+            background: #ff4444;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            background: #111;
+            color: #4ade80;
+            border: 1px solid #333;
+            font-family: 'Consolas', monospace;
+            font-size: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            resize: vertical;
+            margin-bottom: 8px;
+        }
+
+        .view-buttons {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 10px;
+        }
+
+        .view-buttons button {
+            padding: 6px 12px;
+            font-size: 11px;
+        }
+
+        .view-buttons button.active {
+            background: #ff6b6b;
+        }
+
+        .info-bar {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 8px 14px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+        }
+
+        .grid-3 .mini-input {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .grid-3 .mini-input label {
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .grid-3 .mini-input input {
+            width: 100%;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 10px;
+        }
+
+        .tabs button {
+            flex: 1;
+            padding: 8px;
+            font-size: 11px;
+            background: #2a2a3e;
+            border-radius: 4px 4px 0 0;
+        }
+
+        .tabs button.active {
+            background: #3a3a4e;
+            color: #ff6b6b;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="canvas-container"></div>
+    <div id="controls">
+        <h1>🔫 Gun Editor</h1>
+        <div class="subtitle">Design custom weapons for your game</div>
+
+        <!-- Template Loader -->
+        <h2>📦 Weapon Template</h2>
+        <div class="section">
+            <select id="template-select">
+                <option value="">-- New Blank Gun --</option>
+                <option value="smg">Load SMG Template</option>
+                <option value="smg2">Load SMG 2 Template</option>
+                <option value="pistol">Load Pistol Template</option>
+                <option value="sniper">Load Sniper Template</option>
+                <option value="chlobanator">Load CHLOBANATOR Template</option>
+            </select>
+            <div class="control-row">
+                <label>Name</label>
+                <input type="text" id="weapon-name" value="CustomGun" placeholder="Weapon name">
+            </div>
+        </div>
+
+        <!-- Tabs for Stats vs Geometry -->
+        <div class="tabs">
+            <button class="active" onclick="switchTab('stats')">⚙️ Stats</button>
+            <button onclick="switchTab('parts')">🧊 Parts</button>
+            <button onclick="switchTab('anim')">🎬 Anim</button>
+        </div>
+
+        <!-- Stats Tab -->
+        <div id="tab-stats" class="tab-content active">
+            <div class="section">
+                <div class="control-row"><label>Damage</label><input type="number" id="stat-damage" value="20" min="1"
+                        max="200"></div>
+                <div class="control-row"><label>Mag Size</label><input type="number" id="stat-magSize" value="30"
+                        min="1" max="200"></div>
+                <div class="control-row"><label>Reserve</label><input type="number" id="stat-reserveAmmo" value="120"
+                        min="0" max="500"></div>
+                <div class="control-row"><label>Reload (s)</label><input type="number" id="stat-reloadTime" value="2.0"
+                        min="0.1" max="10" step="0.1"></div>
+                <div class="control-row"><label>Fire Rate</label><input type="number" id="stat-fireRate" value="100"
+                        min="10" max="2000" step="10"></div>
+                <div class="control-row"><label>Barrel Len</label><input type="number" id="stat-barrelLength"
+                        value="0.3" min="0.1" max="1" step="0.05"></div>
+                <div class="control-row"><label>Zoom FOV</label><input type="number" id="stat-zoomFOV" value="50"
+                        min="10" max="90"></div>
+            </div>
+            <div class="section">
+                <h2 style="margin-top:0">Recoil</h2>
+                <div class="control-row"><label>Hip</label><input type="number" id="stat-recoilHip" value="0.03" min="0"
+                        max="0.5" step="0.01"></div>
+                <div class="control-row"><label>ADS</label><input type="number" id="stat-recoilAds" value="0.01" min="0"
+                        max="0.5" step="0.01"></div>
+            </div>
+            <div class="section">
+                <h2 style="margin-top:0">Spread</h2>
+                <div class="control-row"><label>Hip</label><input type="number" id="stat-spreadHip" value="0.02" min="0"
+                        max="0.2" step="0.005"></div>
+                <div class="control-row"><label>ADS</label><input type="number" id="stat-spreadAds" value="0.005"
+                        min="0" max="0.2" step="0.005"></div>
+            </div>
+        </div>
+
+        <!-- Parts Tab -->
+        <div id="tab-parts" class="tab-content">
+            <div class="section">
+                <div class="btn-row">
+                    <button class="add" onclick="addPart('box')">+ Box</button>
+                    <button class="add" onclick="addPart('cylinder')">+ Cylinder</button>
+                    <button class="add" onclick="addPart('sphere')">+ Sphere</button>
+                </div>
+                <div class="btn-row" style="margin-top:4px;">
+                    <button class="add" onclick="addPart('capsule')">+ Capsule</button>
+                    <button class="add" onclick="addPart('cone')">+ Cone</button>
+                    <button class="add" onclick="addPart('torus')">+ Torus</button>
+                </div>
+                <h2>⚡ Quick Actions</h2>
+                <div class="btn-row" style="flex-wrap: wrap; gap: 4px;">
+                    <button class="secondary" onclick="mirrorSelectedX()" title="Mirror along X axis">🪞 Mirror
+                        X</button>
+                    <button class="secondary" onclick="centerSelected()" title="Center at origin">⊙ Center</button>
+                    <button class="secondary" onclick="selectAllParts()" title="Select all parts">☑ Select All</button>
+                    <button class="secondary" onclick="clearSelection()" title="Clear selection">☐ Clear</button>
+                </div>
+                <div class="btn-row" style="flex-wrap: wrap; gap: 4px; margin-top: 4px;">
+                    <button class="secondary" onclick="applyMaterialToSelected()"
+                        title="Apply current material to all selected">🎨 Apply Material</button>
+                    <button class="secondary" onclick="groupMoveSelected()" title="Move all selected by offset">↔ Group
+                        Move</button>
+                </div>
+                <h2>🎮 3D Transform Mode</h2>
+                <div class="btn-row" id="transform-buttons" style="gap: 4px;">
+                    <button class="secondary active" id="btn-translate" onclick="setTransformMode('translate')"
+                        title="Move parts (G)">↔ Move</button>
+                    <button class="secondary" id="btn-rotate" onclick="setTransformMode('rotate')"
+                        title="Rotate parts (R)">🔄 Rotate</button>
+                    <button class="secondary" id="btn-scale" onclick="setTransformMode('scale')"
+                        title="Scale mode - use +/- keys (S)">⤢ Scale</button>
+                </div>
+                <div style="font-size:10px; color:#888; margin-top:6px;">
+                    💡 G=Move R=Rotate • <b>+/- = Scale</b> • M=Mirror D=Dup Del=Delete F=Focus
+                </div>
+                <div class="parts-list" id="parts-list"></div>
+            </div>
+
+            <div class="section" id="part-editor" style="display:none;">
+                <h2 style="margin-top:0">✏️ Edit Part: <span id="edit-part-name"></span></h2>
+                <div class="control-row">
+                    <label>Name</label>
+                    <input type="text" id="part-name" onchange="updatePartName()">
+                </div>
+                <h2>Position</h2>
+                <div class="grid-3">
+                    <div class="mini-input"><label>X</label><input type="number" id="part-px" step="0.01"
+                            onchange="updatePartTransform()"></div>
+                    <div class="mini-input"><label>Y</label><input type="number" id="part-py" step="0.01"
+                            onchange="updatePartTransform()"></div>
+                    <div class="mini-input"><label>Z</label><input type="number" id="part-pz" step="0.01"
+                            onchange="updatePartTransform()"></div>
+                </div>
+                <h2>Rotation (deg)</h2>
+                <div class="grid-3">
+                    <div class="mini-input"><label>X</label><input type="number" id="part-rx" step="5"
+                            onchange="updatePartTransform()"></div>
+                    <div class="mini-input"><label>Y</label><input type="number" id="part-ry" step="5"
+                            onchange="updatePartTransform()"></div>
+                    <div class="mini-input"><label>Z</label><input type="number" id="part-rz" step="5"
+                            onchange="updatePartTransform()"></div>
+                </div>
+                <h2>Size</h2>
+                <div class="grid-3" id="size-inputs"></div>
+                <h2>Material</h2>
+                <div class="control-row">
+                    <label>Color</label>
+                    <input type="color" id="part-color" value="#2a2a2a" onchange="updatePartMaterial()">
+                </div>
+                <div class="control-row">
+                    <label>Rough</label>
+                    <input type="range" id="part-roughness" min="0" max="1" step="0.05" value="0.5"
+                        oninput="updatePartMaterial()">
+                    <span class="value" id="rough-val">0.5</span>
+                </div>
+                <div class="control-row">
+                    <label>Metal</label>
+                    <input type="range" id="part-metalness" min="0" max="1" step="0.05" value="0.5"
+                        oninput="updatePartMaterial()">
+                    <span class="value" id="metal-val">0.5</span>
+                </div>
+                <div class="control-row">
+                    <label>Opacity</label>
+                    <input type="range" id="part-opacity" min="0" max="1" step="0.05" value="1"
+                        oninput="updatePartMaterial()">
+                    <span class="value" id="opacity-val">1.0</span>
+                </div>
+                <h2>Texture / Video</h2>
+                <div class="control-row">
+                    <label>Map</label>
+                    <input type="file" id="part-texture" accept="image/*,video/mp4,video/webm"
+                        onchange="updatePartTexture()" style="flex:1; font-size:11px;">
+                </div>
+                <div style="font-size:10px; color:#666; margin-bottom:8px; padding-left:78px;">
+                    💡 Use MP4/WebM for animated textures (GIFs don't animate)
+                </div>
+                <div class="control-row">
+                    <label></label>
+                    <button class="secondary" onclick="clearPartTexture()" style="width:auto; flex:1;">Clear
+                        Texture</button>
+                </div>
+                <div id="texture-preview" style="display:none; margin-top:8px;">
+                    <img id="texture-preview-img"
+                        style="max-width:100%; max-height:80px; border-radius:4px; border:1px solid #444;">
+                    <video id="texture-preview-video" loop muted autoplay playsinline
+                        style="max-width:100%; max-height:80px; border-radius:4px; border:1px solid #444; display:none;"></video>
+                </div>
+            </div>
+        </div>
+
+        <!-- Anim Tab -->
+        <div id="tab-anim" class="tab-content">
+            <div class="section">
+                <h2 style="margin-top:0">🔧 Global Transform (Gun Only)</h2>
+                <div class="control-row">
+                    <label>Scale</label>
+                    <input type="range" id="anim-scale" min="0.1" max="3" step="0.05" value="1"
+                        oninput="updateGlobalTransform()">
+                    <span class="value" id="scale-val">1.00</span>
+                </div>
+                <h2>Gun Offset</h2>
+                <div class="grid-3">
+                    <div class="mini-input"><label>X</label><input type="number" id="anim-offsetX" step="0.01" value="0"
+                            onchange="updateGlobalTransform()"></div>
+                    <div class="mini-input"><label>Y</label><input type="number" id="anim-offsetY" step="0.01" value="0"
+                            onchange="updateGlobalTransform()"></div>
+                    <div class="mini-input"><label>Z</label><input type="number" id="anim-offsetZ" step="0.01" value="0"
+                            onchange="updateGlobalTransform()"></div>
+                </div>
+                <h2>Hip Position</h2>
+                <div class="grid-3">
+                    <div class="mini-input"><label>X</label><input type="number" id="anim-hipX" step="0.05" value="0.2"
+                            onchange="updateViewIfActive()">
+                    </div>
+                    <div class="mini-input"><label>Y</label><input type="number" id="anim-hipY" step="0.05" value="-0.3"
+                            onchange="updateViewIfActive()"></div>
+                    <div class="mini-input"><label>Z</label><input type="number" id="anim-hipZ" step="0.05" value="-0.8"
+                            onchange="updateViewIfActive()"></div>
+                </div>
+                <h2>ADS Position</h2>
+                <div class="grid-3">
+                    <div class="mini-input"><label>X</label><input type="number" id="anim-adsX" step="0.05" value="0"
+                            onchange="updateViewIfActive()">
+                    </div>
+                    <div class="mini-input"><label>Y</label><input type="number" id="anim-adsY" step="0.05" value="-0.1"
+                            onchange="updateViewIfActive()"></div>
+                    <div class="mini-input"><label>Z</label><input type="number" id="anim-adsZ" step="0.05" value="-0.4"
+                            onchange="updateViewIfActive()"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Controls -->
+        <h2>👁️ Preview</h2>
+        <div class="view-buttons">
+            <button class="active" onclick="setView('orbit')">Orbit</button>
+            <button onclick="setView('hip')">Hip</button>
+            <button onclick="setView('ads')">ADS</button>
+        </div>
+
+        <!-- Export -->
+        <h2>📤 Export</h2>
+        <div class="section">
+            <button onclick="generateCode()">Generate Code</button>
+            <textarea id="output-code" readonly placeholder="Click 'Generate Code' to see the output..."></textarea>
+            <button class="secondary" onclick="copyCode()">Copy to Clipboard</button>
+        </div>
+    </div>
+
+    <div class="info-bar" id="info-bar">Add parts to build your weapon</div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { TransformControls } from 'three/addons/controls/TransformControls.js';
+
+        // === IMPORT LIVE GAME DATA ===
+        import { DEFAULT_FP_ANIM } from './js/entities/weapon-constants.js';
+        import { SMG_DATA, SMG_ANIM } from './js/entities/guns/smg.js';
+        import { SMG2_DATA, SMG2_ANIM } from './js/entities/guns/smg2.js';
+        import { PISTOL_DATA, PISTOL_ANIM } from './js/entities/guns/pistol.js';
+        import { SNIPER_DATA, SNIPER_ANIM } from './js/entities/guns/sniper.js';
+        import { CHLOBANATOR_DATA, CHLOBANATOR_ANIM } from './js/entities/guns/chlobanator.js';
+
+        // === STATE ===
+        let scene, camera, renderer, controls;
+        let gunGroup;    // Main group that moves with hip/ads position
+        let partsGroup;  // Inner group for gun parts only (affected by scale/offset)
+        let armsGroup = null;
+        let parts = [];
+        let selectedPartId = null;
+        let selectedPartIds = [];  // Multi-select support
+        let partIdCounter = 0;
+        let currentView = 'orbit';
+        let globalScale = 1.0;
+        let globalOffset = { x: 0, y: 0, z: 0 };
+        let raycaster = null;
+        const mouse = new THREE.Vector2();
+        let transformControls = null;
+        let currentTransformMode = 'translate';  // translate, rotate, scale
+
+        // === TEMPLATES (1:1 with game files) ===
+        const TEMPLATES = {
+            smg: {
+                name: 'SMG',
+                data: SMG_DATA,
+                anim: SMG_ANIM,
+                globalScale: 1.0,
+                globalOffset: { x: 0, y: 0, z: 0 },
+                parts: [
+                    // From smg.js buildSmgModel()
+                    { name: 'Body', type: 'box', pos: [0, 0, 0], rot: [0, 0, 0], size: [0.1, 0.15, 0.4], color: '#ffffff', roughness: 0.35, metalness: 0.85 },
+                    { name: 'Barrel', type: 'cylinder', pos: [0, 0.05, -0.3], rot: [90, 0, 0], size: [0.03, 0.3], color: '#ffffff', roughness: 0.25, metalness: 0.95 },
+                    { name: 'Magazine', type: 'box', pos: [0, -0.15, 0.05], rot: [0, 0, 0], size: [0.05, 0.2, 0.08], color: '#222222', roughness: 0.6, metalness: 0.4 },
+                    { name: 'Sight', type: 'box', pos: [0, 0.095, 0.18], rot: [0, 0, 0], size: [0.06, 0.04, 0.02], color: '#444444', roughness: 0.5, metalness: 0.8, opacity: 0.3 },
+                    { name: 'FrontSight', type: 'box', pos: [0, 0.08, -0.44], rot: [0, 0, 0], size: [0.01, 0.05, 0.02], color: '#444444', roughness: 0.5, metalness: 0.5, opacity: 1.0 }
+                ]
+            },
+            smg2: {
+                name: 'SMG Type 2',
+                data: SMG2_DATA,
+                anim: SMG2_ANIM,
+                globalScale: 1.65,
+                globalOffset: { x: 0, y: 0.175, z: 0.78 },
+                parts: [
+                    // From smg2.js buildSmg2Model()
+                    { name: 'Handle', type: 'box', pos: [0, -0.17, -0.46], rot: [-20, 0, 0], size: [0.03, 0.17, 0.05], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'MainBody', type: 'cylinder', pos: [0, -0.1, -0.57], rot: [90, 0, 0], size: [0.04, 0.43], color: '#c9c9c9', roughness: 0.25, metalness: 1 },
+                    { name: 'MagHousing', type: 'box', pos: [0, -0.19, -0.68], rot: [0, 0, 0], size: [0.03, 0.17, 0.03], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'BarrelBase', type: 'cylinder', pos: [0, -0.1, -0.59], rot: [90, 0, 0], size: [0.02, 0.5], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'BarrelTip', type: 'cylinder', pos: [0, -0.1, -0.61], rot: [90, 0, 0], size: [0.01, 0.57], color: '#c7c7c7', roughness: 0.35, metalness: 1 },
+                    { name: 'StockConnect', type: 'box', pos: [0, -0.13, -0.72], rot: [90, 0, 0], size: [0.02, 0.17, 0.03], color: '#9c9c9c', roughness: 0.75, metalness: 0.5 },
+                    { name: 'StockBar', type: 'box', pos: [0, -0.07, -0.79], rot: [90, 0, 0], size: [0.01, 0.07, 0.01], color: '#c7c7c7', roughness: 0.5, metalness: 0.5 },
+                    { name: 'StockEnd', type: 'cylinder', pos: [0, -0.1, -0.82], rot: [90, 0, 0], size: [0.04, 0.01], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'BackCap', type: 'sphere', pos: [0, -0.1, -0.37], rot: [0, 0, 0], size: [0.04], color: '#9c9c9c', roughness: 0.25, metalness: 1 },
+                    { name: 'DetailBox', type: 'box', pos: [0, -0.1, -0.76], rot: [0, 0, 0], size: [0.01, 0.11, 0.02], color: '#d6d6d6', roughness: 1, metalness: 1 }
+                ]
+            },
+            pistol: {
+                name: 'Pistol',
+                data: PISTOL_DATA,
+                anim: PISTOL_ANIM,
+                globalScale: 2.1,
+                globalOffset: { x: 0, y: -0.17, z: -0.19 },
+                parts: [
+                    // From pistol.js buildPistolModel()
+                    { name: 'Slide', type: 'box', pos: [0, 0.07, 0], rot: [0, 0, 0], size: [0.04, 0.04, 0.3], color: '#d0c8c8', roughness: 0.55, metalness: 0.45 },
+                    { name: 'Grip', type: 'box', pos: [0, -0.02, 0.08], rot: [0, 0, 0], size: [0.03, 0.15, 0.05], color: '#1a1a1a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'FrontSight', type: 'box', pos: [0, 0.09, -0.14], rot: [0, 0, 0], size: [0.005, 0.03, 0.01], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'Barrel', type: 'cylinder', pos: [0, 0.07, -0.08], rot: [90, 0, 0], size: [0.01, 0.2], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'Shroud', type: 'cylinder', pos: [0, 0.08, 0], rot: [90, 0, 0], size: [0.02, 0.17], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'LeftRail', type: 'box', pos: [0.01, 0.09, 0.11], rot: [0, 0, 0], size: [0.005, 0.03, 0.1], color: '#525252', roughness: 0.5, metalness: 0.5 },
+                    { name: 'RightRail', type: 'box', pos: [-0.01, 0.09, 0.11], rot: [0, 0, 0], size: [0.005, 0.03, 0.1], color: '#525252', roughness: 0.5, metalness: 0.5 },
+                    { name: 'Frame', type: 'cylinder', pos: [0, 0.06, 0], rot: [90, 0, 0], size: [0.03, 0.17], color: '#9a8d8d', roughness: 0.5, metalness: 0.5 },
+                    { name: 'TriggerGuard', type: 'box', pos: [0, 0.01, 0.04], rot: [0, 0, 0], size: [0.02, 0.01, 0.03], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'Trigger', type: 'box', pos: [0, 0.03, 0.01], rot: [45, 0, 0], size: [0.02, 0.01, 0.05], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 }
+                ]
+            },
+            sniper: {
+                name: 'Sniper',
+                data: SNIPER_DATA,
+                anim: SNIPER_ANIM,
+                globalScale: 1.0,
+                globalOffset: { x: 0, y: 0, z: 0 },
+                parts: [
+                    // From sniper.js buildSniperModel()
+                    { name: 'Body', type: 'box', pos: [0, 0, -0.1], rot: [0, 0, 0], size: [0.12, 0.12, 0.5], color: '#2a2a2a', roughness: 0.6, metalness: 0.7 },
+                    { name: 'Barrel', type: 'cylinder', pos: [0, 0.04, -0.5], rot: [90, 0, 0], size: [0.025, 0.6], color: '#0a0a0a', roughness: 0.2, metalness: 0.95 },
+                    { name: 'Bolt', type: 'box', pos: [0, 0.02, 0.2], rot: [0, 0, 0], size: [0.08, 0.08, 0.15], color: '#2a2a2a', roughness: 0.6, metalness: 0.7 },
+                    { name: 'Magazine', type: 'box', pos: [0, -0.12, 0], rot: [0, 0, 0], size: [0.04, 0.15, 0.06], color: '#1a1a1a', roughness: 0.6, metalness: 0.5 },
+                    { name: 'ScopeRing1', type: 'torus', pos: [0, 0.095, 0.1], rot: [0, 90, 0], size: [0.04, 0.01], color: '#222222', roughness: 0.4, metalness: 0.8 },
+                    { name: 'ScopeRing2', type: 'torus', pos: [0, 0.095, -0.2], rot: [0, 90, 0], size: [0.04, 0.01], color: '#222222', roughness: 0.4, metalness: 0.8 },
+                    { name: 'ScopeTube', type: 'cylinder', pos: [0, 0.095, -0.05], rot: [90, 0, 0], size: [0.035, 0.35], color: '#1a1a1a', roughness: 0.4, metalness: 0.6 },
+                    { name: 'Stock', type: 'box', pos: [0, -0.02, 0.4], rot: [0, 0, 0], size: [0.1, 0.15, 0.2], color: '#3a2a1a', roughness: 0.8, metalness: 0.1 }
+                ]
+            },
+            chlobanator: {
+                name: 'CHLOBANATOR',
+                data: CHLOBANATOR_DATA,
+                anim: CHLOBANATOR_ANIM,
+                globalScale: 1.55,
+                globalOffset: { x: 0, y: 0.02, z: -0.38 },
+                parts: [
+                    // From chlobanator.js buildChlobanatorModel()
+                    { name: 'Barrel1', type: 'cylinder', pos: [-0.02, 0, -0.32], rot: [90, 0, 0], size: [0.03, 0.2], color: '#15c1be', roughness: 0.5, metalness: 0.5 },
+                    { name: 'Barrel2', type: 'cylinder', pos: [0.02, 0, -0.32], rot: [90, 0, 0], size: [0.03, 0.2], color: '#15c1be', roughness: 0.5, metalness: 0.5 },
+                    { name: 'MainBody', type: 'box', pos: [0, 0, 0.04], rot: [0, 0, 0], size: [0.1, 0.07, 0.42], color: '#ca56d2', roughness: 0.5, metalness: 0.5 },
+                    { name: 'Grip', type: 'box', pos: [0, -0.09, 0.18], rot: [-15, 0, 0], size: [0.04, 0.15, 0.04], color: '#854ab5', roughness: 0.5, metalness: 0.5 },
+                    { name: 'InnerBarrel1', type: 'cylinder', pos: [-0.02, 0, -0.32], rot: [90, 0, 0], size: [0.02, 0.3], color: '#000000', roughness: 0.5, metalness: 0.5 },
+                    { name: 'InnerBarrel2', type: 'cylinder', pos: [0.02, 0, -0.32], rot: [90, 0, 0], size: [0.02, 0.3], color: '#000000', roughness: 0.5, metalness: 0.5 },
+                    { name: 'FrontGrip', type: 'box', pos: [0, -0.08, -0.14], rot: [0, 0, 0], size: [0.04, 0.15, 0.04], color: '#c7a6e2', roughness: 0.5, metalness: 0.5 },
+                    { name: 'TopRail', type: 'box', pos: [0, 0.03, 0.11], rot: [0, 0, 0], size: [0.03, 0.02, 0.32], color: '#3680ce', roughness: 0.5, metalness: 0.5 },
+                    { name: 'LeftRail', type: 'box', pos: [-0.03, 0.04, 0.11], rot: [0, 0, 0], size: [0.01, 0.03, 0.32], color: '#3680ce', roughness: 0.5, metalness: 0.5 },
+                    { name: 'RightRail', type: 'box', pos: [0.03, 0.04, 0.11], rot: [0, 0, 0], size: [0.01, 0.03, 0.32], color: '#3680ce', roughness: 0.5, metalness: 0.5 },
+                    { name: 'SideRailLeftBot', type: 'box', pos: [-0.05, 0, 0.08], rot: [0, -1, 0], size: [0.01, 0.01, 0.6], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'SideRailLeftTop', type: 'box', pos: [-0.05, 0.02, 0], rot: [0, 0, 0], size: [0.005, 0.005, 0.44], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'SideRailRightTop', type: 'box', pos: [0.05, 0.02, 0], rot: [0, 0, 0], size: [0.005, 0.005, 0.44], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'SideRailRightBot', type: 'box', pos: [0.05, 0, 0.08], rot: [0, 1, 0], size: [0.01, 0.01, 0.6], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'BodyBack1', type: 'box', pos: [0, 0.01, 0.38], rot: [0, 0, 0], size: [0.05, 0.02, 0.24], color: '#ca56d2', roughness: 0.5, metalness: 0.5 },
+                    { name: 'SideRailLeftLower', type: 'box', pos: [-0.06, -0.02, 0.16], rot: [0, -2, 0], size: [0.01, 0.01, 0.7], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'SideRailRightLower', type: 'box', pos: [0.06, -0.02, 0.16], rot: [0, 2, 0], size: [0.01, 0.01, 0.7], color: '#3a3a3a', roughness: 0.5, metalness: 0.5 },
+                    { name: 'BodyBack2', type: 'box', pos: [0, -0.01, 0.45], rot: [0, 0, 0], size: [0.04, 0.02, 0.1], color: '#ca56d2', roughness: 0.5, metalness: 0.5 },
+                    { name: 'BackRailRight', type: 'box', pos: [0.02, 0.02, 0.35], rot: [0, 0, 0], size: [0.01, 0.01, 0.32], color: '#15c1be', roughness: 0.5, metalness: 0.5 },
+                    { name: 'BackRailLeft', type: 'box', pos: [-0.02, 0.02, 0.35], rot: [0, 0, 0], size: [0.01, 0.01, 0.32], color: '#15c1be', roughness: 0.5, metalness: 0.5 }
+                ]
+            }
+        };
+
+        // === INIT ===
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x999999);
+
+            // Grid
+            // const grid = new THREE.GridHelper(2, 20, 0x999999, 0x666666);
+            // scene.add(grid);
+
+            // Axes
+            const axes = new THREE.AxesHelper(0.5);
+            scene.add(axes);
+
+            // Lighting
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dir = new THREE.DirectionalLight(0xffffff, 1);
+            dir.position.set(5, 10, 7);
+            scene.add(dir);
+            const fill = new THREE.DirectionalLight(0x8888ff, 0.4);
+            fill.position.set(-5, 3, -5);
+            scene.add(fill);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.01, 100);
+            camera.position.set(0.5, 0.3, 0.8);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 0, 0);
+            controls.enableDamping = true;
+            controls.update();
+
+            // Gun group hierarchy
+            gunGroup = new THREE.Group();
+            scene.add(gunGroup);
+
+            partsGroup = new THREE.Group();
+            gunGroup.add(partsGroup);
+
+            // Create arms
+            armsGroup = createArmsModel();
+            armsGroup.visible = false;
+            scene.add(armsGroup);
+
+            // Events
+            document.getElementById('template-select').addEventListener('change', loadTemplate);
+            window.addEventListener('resize', onResize);
+
+            // Raycaster for click-to-select
+            raycaster = new THREE.Raycaster();
+            renderer.domElement.addEventListener('click', onCanvasClick);
+
+            // Transform controls for interactive manipulation
+            transformControls = new TransformControls(camera, renderer.domElement);
+            transformControls.setMode('translate');
+            transformControls.setSize(0.75);
+            scene.add(transformControls);
+
+            // Disable orbit controls while transforming, and finalize scale on drag end
+            transformControls.addEventListener('dragging-changed', function (event) {
+                controls.enabled = !event.value;
+
+                // When drag ends and we're in scale mode, apply the scale to size
+                if (!event.value && currentTransformMode === 'scale') {
+                    const part = parts.find(p => p.mesh === transformControls.object);
+                    if (part && part.mesh) {
+                        const scaleX = part.mesh.scale.x;
+                        const scaleY = part.mesh.scale.y;
+                        const scaleZ = part.mesh.scale.z;
+
+                        // Apply scale to size based on geometry type
+                        if (part.type === 'box') {
+                            part.size[0] = parseFloat((part.size[0] * scaleX).toFixed(4));
+                            part.size[1] = parseFloat((part.size[1] * scaleY).toFixed(4));
+                            part.size[2] = parseFloat((part.size[2] * scaleZ).toFixed(4));
+                        } else if (part.type === 'cylinder') {
+                            // Cylinder: [radius, height] - use X for radius, Y for height
+                            part.size[0] = parseFloat((part.size[0] * scaleX).toFixed(4));
+                            part.size[1] = parseFloat((part.size[1] * scaleY).toFixed(4));
+                        } else if (part.type === 'sphere') {
+                            // Sphere: [radius] - use uniform scale
+                            part.size[0] = parseFloat((part.size[0] * scaleX).toFixed(4));
+                        }
+
+                        // Reset mesh scale and rebuild with new size
+                        part.mesh.scale.set(1, 1, 1);
+                        const oldMesh = part.mesh;
+                        createPartMesh(part);
+                        transformControls.attach(part.mesh);
+
+                        showPartEditor();
+                        updateInfo('Scaled: ' + part.name);
+                    }
+                }
+            });
+
+            // Update part data when transform changes (position/rotation only)
+            transformControls.addEventListener('objectChange', function () {
+                const part = parts.find(p => p.mesh === transformControls.object);
+                if (part) {
+                    // Update position
+                    part.pos[0] = parseFloat(part.mesh.position.x.toFixed(4));
+                    part.pos[1] = parseFloat(part.mesh.position.y.toFixed(4));
+                    part.pos[2] = parseFloat(part.mesh.position.z.toFixed(4));
+
+                    // Update rotation (convert to degrees)
+                    part.rot[0] = parseFloat((part.mesh.rotation.x * 180 / Math.PI).toFixed(2));
+                    part.rot[1] = parseFloat((part.mesh.rotation.y * 180 / Math.PI).toFixed(2));
+                    part.rot[2] = parseFloat((part.mesh.rotation.z * 180 / Math.PI).toFixed(2));
+
+                    // Update editor UI (but don't rebuild mesh for scale - that happens on drag end)
+                    if (currentTransformMode !== 'scale') {
+                        showPartEditor();
+                    }
+                }
+            });
+
+            // Animation loop
+            renderer.setAnimationLoop(animate);
+
+            updateInfo('Ready! Add parts or load a template. Click on parts to select them.');
+        }
+
+        // === CLICK TO SELECT IN 3D VIEW ===
+        function onCanvasClick(event) {
+            const container = document.getElementById('canvas-container');
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(partsGroup.children, true);
+
+            if (intersects.length > 0) {
+                const clickedMesh = intersects[0].object;
+                const partId = clickedMesh.userData?.id;
+                if (partId !== undefined) {
+                    if (event.ctrlKey || event.metaKey) {
+                        // Multi-select
+                        if (selectedPartIds.includes(partId)) {
+                            selectedPartIds = selectedPartIds.filter(pid => pid !== partId);
+                        } else {
+                            selectedPartIds.push(partId);
+                        }
+                        selectedPartId = partId;
+                    } else {
+                        // Single select
+                        selectedPartId = partId;
+                        selectedPartIds = [partId];
+                    }
+                    renderPartsList();
+                    showPartEditor();
+                    updateSelectionHighlights();
+
+                    // Attach transform controls to selected part
+                    const selectedPart = parts.find(p => p.id === partId);
+                    if (selectedPart) {
+                        attachTransformControls(selectedPart);
+                    }
+
+                    updateInfo('Selected: ' + parts.find(p => p.id === partId)?.name);
+                }
+            } else {
+                // Clicked on empty space - deselect all and clear
+                selectedPartId = null;
+                selectedPartIds = [];
+                transformControls.detach();
+                hidePartEditor();
+                renderPartsList();
+                updateSelectionHighlights();
+                updateInfo('Selection cleared');
+            }
+        }
+
+        // === ATTACH TRANSFORM CONTROLS ===
+        function attachTransformControls(part) {
+            if (!part || !part.mesh) return;
+            transformControls.attach(part.mesh);
+            // Only use translate and rotate modes - scale is handled separately
+            if (currentTransformMode === 'scale') {
+                transformControls.setMode('translate');
+            } else {
+                transformControls.setMode(currentTransformMode);
+            }
+        }
+
+        // === SET TRANSFORM MODE ===
+        window.setTransformMode = function (mode) {
+            currentTransformMode = mode;
+
+            // TransformControls only for translate and rotate
+            // Scale is done with +/- keys for reliable in-place scaling
+            if (mode === 'scale') {
+                transformControls.detach();
+                updateInfo('Scale mode: Use + to grow, - to shrink selected part');
+            } else {
+                transformControls.setMode(mode);
+                // Re-attach if we have a selected part
+                const part = parts.find(p => p.id === selectedPartId);
+                if (part) attachTransformControls(part);
+                updateInfo('Transform mode: ' + mode.charAt(0).toUpperCase() + mode.slice(1));
+            }
+
+            // Update button states
+            document.querySelectorAll('#transform-buttons button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById('btn-' + mode).classList.add('active');
+        };
+
+        // === SCALE SELECTED PART (in-place) ===
+        window.scaleSelectedPart = function (factor) {
+            const ids = selectedPartIds.length > 0 ? selectedPartIds : (selectedPartId ? [selectedPartId] : []);
+            if (ids.length === 0) {
+                updateInfo('No part selected to scale');
+                return;
+            }
+
+            ids.forEach(id => {
+                const part = parts.find(p => p.id === id);
+                if (part) {
+                    // Scale size values uniformly
+                    part.size = part.size.map(s => parseFloat((s * factor).toFixed(4)));
+
+                    // Rebuild mesh at same position
+                    createPartMesh(part);
+                }
+            });
+
+            updateSelectionHighlights();
+            showPartEditor(); // Updates UI for the primary selected part
+
+            updateInfo('Scaled: ' + ids.length + ' part(s) (' + (factor > 1 ? '+' : '') + ((factor - 1) * 100).toFixed(0) + '%)');
+        };
+
+        // === UPDATE SELECTION HIGHLIGHTS (Glow Effect) ===
+        function updateSelectionHighlights() {
+            parts.forEach(p => {
+                if (!p.mesh) return;
+                const isSelected = p.id === selectedPartId;
+                const isMultiSelected = selectedPartIds.includes(p.id);
+
+                if (isSelected) {
+                    // Primary selection - red/orange glow
+                    p.mesh.material.emissive = new THREE.Color(0xff4444);
+                    p.mesh.material.emissiveIntensity = 0.4;
+                } else if (isMultiSelected) {
+                    // Multi-selection - blue glow
+                    p.mesh.material.emissive = new THREE.Color(0x4488ff);
+                    p.mesh.material.emissiveIntensity = 0.3;
+                } else {
+                    // Not selected - no glow
+                    p.mesh.material.emissive = new THREE.Color(0x000000);
+                    p.mesh.material.emissiveIntensity = 0;
+                }
+            });
+        }
+
+        // === ARMS MODEL ===
+        function createArmsModel() {
+            const group = new THREE.Group();
+            const skinMaterial = new THREE.MeshStandardMaterial({ color: 0xffd1a4, roughness: 0.65, metalness: 0.05 });
+            const sleeveMaterial = new THREE.MeshStandardMaterial({ color: 0x222831, roughness: 0.8, metalness: 0.05 });
+            const foreGeo = new THREE.CapsuleGeometry(0.09, 0.85, 4, 8);
+            const handGeo = new THREE.BoxGeometry(0.14, 0.08, 0.18);
+
+            const leftFore = new THREE.Mesh(foreGeo, sleeveMaterial);
+            leftFore.position.set(-0.2, -0.4, -0.2);
+            leftFore.rotation.set(-Math.PI / 2, 0, -0.5);
+            group.add(leftFore);
+
+            const rightFore = new THREE.Mesh(foreGeo, sleeveMaterial);
+            rightFore.position.set(0.0, -0.2, 0.6);
+            rightFore.rotation.set(-Math.PI / 2, 0, 0);
+            group.add(rightFore);
+
+            const leftHand = new THREE.Mesh(handGeo, skinMaterial);
+            leftHand.position.set(0.0, -0.3, -0.5);
+            leftHand.rotation.set(0, 0, 0);
+            group.add(leftHand);
+
+            const rightHand = new THREE.Mesh(handGeo, skinMaterial);
+            rightHand.position.set(0.0, -0.2, 0.0);
+            rightHand.rotation.set(0, 0, 0);
+            group.add(rightHand);
+
+            group.position.set(0, 0.05, 0.05);
+            return group;
+        }
+
+        function animate() {
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function updateInfo(msg) {
+            document.getElementById('info-bar').textContent = msg;
+        }
+
+        window.switchTab = function (tab) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            event.target.classList.add('active');
+        };
+
+        window.setView = function (view) {
+            currentView = view;
+            document.querySelectorAll('.view-buttons button').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if (armsGroup && armsGroup.parent) {
+                armsGroup.parent.remove(armsGroup);
+            }
+
+            if (view === 'orbit') {
+                controls.enabled = true;
+                camera.position.set(0.5, 0.3, 0.8);
+                controls.target.set(0, 0, 0);
+                gunGroup.position.set(0, 0, 0);
+                scene.add(armsGroup);
+                armsGroup.visible = false;
+            } else if (view === 'hip') {
+                controls.enabled = false;
+                const x = parseFloat(document.getElementById('anim-hipX').value);
+                const y = parseFloat(document.getElementById('anim-hipY').value);
+                const z = parseFloat(document.getElementById('anim-hipZ').value);
+                gunGroup.position.set(x, y, z);
+                camera.position.set(0, 0, 0);
+                camera.lookAt(0, 0, -1);
+                gunGroup.add(armsGroup);
+                armsGroup.visible = true;
+                armsGroup.position.set(0, 0.05, 0.05);
+            } else if (view === 'ads') {
+                controls.enabled = false;
+                const x = parseFloat(document.getElementById('anim-adsX').value);
+                const y = parseFloat(document.getElementById('anim-adsY').value);
+                const z = parseFloat(document.getElementById('anim-adsZ').value);
+                gunGroup.position.set(x, y, z);
+                camera.position.set(0, 0, 0);
+                camera.lookAt(0, 0, -1);
+                gunGroup.add(armsGroup);
+                armsGroup.visible = true;
+                armsGroup.position.set(0, 0.05, 0.05);
+            }
+            controls.update();
+        };
+
+        window.updateViewIfActive = function () {
+            if (currentView !== 'orbit') {
+                const btn = document.querySelector(`.view-buttons button.active`);
+                if (btn) btn.click();
+            }
+        };
+
+        window.updateGlobalTransform = function () {
+            globalScale = parseFloat(document.getElementById('anim-scale').value);
+            globalOffset.x = parseFloat(document.getElementById('anim-offsetX').value);
+            globalOffset.y = parseFloat(document.getElementById('anim-offsetY').value);
+            globalOffset.z = parseFloat(document.getElementById('anim-offsetZ').value);
+
+            document.getElementById('scale-val').textContent = globalScale.toFixed(2);
+            partsGroup.scale.setScalar(globalScale);
+            partsGroup.position.set(globalOffset.x, globalOffset.y, globalOffset.z);
+        };
+
+        // === LOAD TEMPLATE ===
+        window.loadTemplate = function () {
+            const val = document.getElementById('template-select').value;
+            if (!val || !TEMPLATES[val]) return;
+
+            const t = TEMPLATES[val];
+            document.getElementById('weapon-name').value = t.name;
+
+            const d = t.data;
+            document.getElementById('stat-damage').value = d.damage;
+            document.getElementById('stat-magSize').value = d.magSize;
+            document.getElementById('stat-reserveAmmo').value = d.reserveAmmo;
+            document.getElementById('stat-reloadTime').value = d.reloadTime;
+            document.getElementById('stat-fireRate').value = d.fireRate;
+            document.getElementById('stat-barrelLength').value = d.barrelLength;
+            document.getElementById('stat-zoomFOV').value = d.zoomFOV;
+            document.getElementById('stat-recoilHip').value = d.recoil.hip;
+            document.getElementById('stat-recoilAds').value = d.recoil.ads;
+            document.getElementById('stat-spreadHip').value = d.spread.hip;
+            document.getElementById('stat-spreadAds').value = d.spread.ads;
+
+            const a = t.anim?.fp || {};
+            document.getElementById('anim-hipX').value = a.hipPosition?.x || 0;
+            document.getElementById('anim-hipY').value = a.hipPosition?.y || 0;
+            document.getElementById('anim-hipZ').value = a.hipPosition?.z || 0;
+            document.getElementById('anim-adsX').value = a.adsPosition?.x || 0;
+            document.getElementById('anim-adsY').value = a.adsPosition?.y || 0;
+            document.getElementById('anim-adsZ').value = a.adsPosition?.z || 0;
+
+            // Use global scale and offset from template (if defined)
+            const defaultScale = t.globalScale !== undefined ? t.globalScale : 1.0;
+            const defaultOffset = t.globalOffset || { x: 0, y: 0, z: 0 };
+
+            document.getElementById('anim-scale').value = defaultScale;
+            globalScale = defaultScale;
+            document.getElementById('scale-val').textContent = globalScale.toFixed(2);
+            partsGroup.scale.setScalar(globalScale);
+
+            document.getElementById('anim-offsetX').value = defaultOffset.x;
+            document.getElementById('anim-offsetY').value = defaultOffset.y;
+            document.getElementById('anim-offsetZ').value = defaultOffset.z;
+            globalOffset = defaultOffset;
+            partsGroup.position.set(globalOffset.x, globalOffset.y, globalOffset.z);
+
+            parts = [];
+            partIdCounter = 0;
+            document.getElementById('parts-list').innerHTML = '';
+            while (partsGroup.children.length > 0) {
+                partsGroup.remove(partsGroup.children[0]);
+            }
+
+            if (t.parts) {
+                t.parts.forEach(p => {
+                    addPartFromTemplate(p);
+                });
+            }
+
+            updateGlobalTransform();
+            updateInfo(`Loaded template: ${t.name}`);
+        };
+
+        function addPartFromTemplate(tplPart) {
+            const id = ++partIdCounter;
+            const part = {
+                id,
+                name: tplPart.name,
+                type: tplPart.type,
+                pos: [...tplPart.pos],
+                rot: [...tplPart.rot],
+                size: [...tplPart.size],
+                color: tplPart.color,
+                roughness: tplPart.roughness,
+                metalness: tplPart.metalness,
+                opacity: tplPart.opacity !== undefined ? tplPart.opacity : 1.0,
+                texture: null,
+                textureDataUrl: null,
+                isVideoTexture: false,
+                mesh: null
+            };
+            parts.push(part);
+            createPartMesh(part);
+            renderPartsList();
+        }
+
+        window.addPart = function (type) {
+            const id = ++partIdCounter;
+            // Default sizes for each shape type
+            // box: [width, height, depth]
+            // cylinder: [radius, height]
+            // sphere: [radius]
+            // capsule: [radius, length]
+            // cone: [radius, height]
+            // torus: [radius, tubeRadius]
+            let defaultSize;
+            switch (type) {
+                case 'box': defaultSize = [0.1, 0.1, 0.1]; break;
+                case 'cylinder': defaultSize = [0.03, 0.2]; break;
+                case 'sphere': defaultSize = [0.05]; break;
+                case 'capsule': defaultSize = [0.03, 0.15]; break;
+                case 'cone': defaultSize = [0.05, 0.15]; break;
+                case 'torus': defaultSize = [0.08, 0.02]; break;
+                default: defaultSize = [0.1, 0.1, 0.1];
+            }
+            const part = {
+                id,
+                name: `${type}_${id}`,
+                type,
+                pos: [0, 0, 0],
+                rot: [0, 0, 0],
+                size: defaultSize,
+                color: '#3a3a3a',
+                roughness: 0.5,
+                metalness: 0.5,
+                opacity: 1.0,
+                texture: null,
+                textureDataUrl: null,
+                mesh: null
+            };
+            parts.push(part);
+            createPartMesh(part);
+            selectPart(id);
+            renderPartsList();
+            updateInfo(`Added ${type} part`);
+        };
+
+        function createPartMesh(part) {
+            if (part.mesh) partsGroup.remove(part.mesh);
+
+            let geo;
+            if (part.type === 'box') {
+                geo = new THREE.BoxGeometry(part.size[0], part.size[1], part.size[2]);
+            } else if (part.type === 'cylinder') {
+                geo = new THREE.CylinderGeometry(part.size[0], part.size[0], part.size[1], 16);
+            } else if (part.type === 'sphere') {
+                geo = new THREE.SphereGeometry(part.size[0], 16, 16);
+            } else if (part.type === 'capsule') {
+                // CapsuleGeometry(radius, length, capSegments, radialSegments)
+                geo = new THREE.CapsuleGeometry(part.size[0], part.size[1], 8, 16);
+            } else if (part.type === 'cone') {
+                // ConeGeometry(radius, height, radialSegments)
+                geo = new THREE.ConeGeometry(part.size[0], part.size[1], 16);
+            } else if (part.type === 'torus') {
+                // TorusGeometry(radius, tube, radialSegments, tubularSegments)
+                geo = new THREE.TorusGeometry(part.size[0], part.size[1], 12, 24);
+            } else {
+                // Fallback to box
+                geo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+            }
+
+            const opacity = part.opacity !== undefined ? part.opacity : 1.0;
+            const mat = new THREE.MeshStandardMaterial({
+                color: part.color,
+                roughness: part.roughness,
+                metalness: part.metalness,
+                opacity: opacity,
+                transparent: opacity < 1.0,
+                depthWrite: opacity >= 1.0  // Important for transparency rendering
+            });
+
+            // Apply texture if available
+            if (part.texture) {
+                mat.map = part.texture;
+                mat.needsUpdate = true;
+            }
+
+            part.mesh = new THREE.Mesh(geo, mat);
+            part.mesh.position.set(part.pos[0], part.pos[1], part.pos[2]);
+            part.mesh.rotation.set(
+                THREE.MathUtils.degToRad(part.rot[0]),
+                THREE.MathUtils.degToRad(part.rot[1]),
+                THREE.MathUtils.degToRad(part.rot[2])
+            );
+            part.mesh.castShadow = true;
+            part.mesh.userData = { id: part.id };
+            partsGroup.add(part.mesh);
+        }
+
+        function renderPartsList() {
+            const container = document.getElementById('parts-list');
+            container.innerHTML = parts.map(p => {
+                const isSelected = p.id === selectedPartId;
+                const isMultiSelected = selectedPartIds.includes(p.id);
+                const selClass = isSelected ? 'selected' : (isMultiSelected ? 'multi-selected' : '');
+                return `
+                <div class="part-item ${selClass}" onclick="handlePartClick(event, ${p.id})">
+                    <div>
+                        <div class="name">${p.name}</div>
+                        <div class="type">${p.type}</div>
+                    </div>
+                    <div class="actions">
+                        <button class="dup" onclick="event.stopPropagation(); mirrorPart(${p.id})" title="Mirror X">🪞</button>
+                        <button class="dup" onclick="event.stopPropagation(); duplicatePart(${p.id})" title="Duplicate">⧉</button>
+                        <button class="del" onclick="event.stopPropagation(); deletePart(${p.id})" title="Delete">×</button>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        window.handlePartClick = function (event, id) {
+            if (event.ctrlKey || event.metaKey) {
+                // Multi-select with Ctrl+Click
+                if (selectedPartIds.includes(id)) {
+                    selectedPartIds = selectedPartIds.filter(pid => pid !== id);
+                } else {
+                    selectedPartIds.push(id);
+                }
+                // Also set as primary selection for editing
+                selectedPartId = id;
+            } else {
+                // Single select
+                selectedPartId = id;
+                selectedPartIds = [id];
+            }
+            renderPartsList();
+            showPartEditor();
+            updateSelectionHighlights();
+            // Attach transform controls
+            const part = parts.find(p => p.id === id);
+            if (part) attachTransformControls(part);
+        };
+
+        function selectPart(id) {
+            selectedPartId = id;
+            selectedPartIds = [id];
+            renderPartsList();
+            showPartEditor();
+            updateSelectionHighlights();
+            // Attach transform controls
+            const part = parts.find(p => p.id === id);
+            if (part) attachTransformControls(part);
+        }
+
+        window.selectPart = selectPart;
+
+        function showPartEditor() {
+            const part = parts.find(p => p.id === selectedPartId);
+            if (!part) return;
+
+            document.getElementById('part-editor').style.display = 'block';
+            document.getElementById('edit-part-name').textContent = part.name;
+            document.getElementById('part-name').value = part.name;
+            document.getElementById('part-px').value = part.pos[0];
+            document.getElementById('part-py').value = part.pos[1];
+            document.getElementById('part-pz').value = part.pos[2];
+            document.getElementById('part-rx').value = part.rot[0];
+            document.getElementById('part-ry').value = part.rot[1];
+            document.getElementById('part-rz').value = part.rot[2];
+            document.getElementById('part-color').value = part.color;
+            document.getElementById('part-roughness').value = part.roughness;
+            document.getElementById('part-metalness').value = part.metalness;
+            document.getElementById('part-opacity').value = part.opacity !== undefined ? part.opacity : 1.0;
+            document.getElementById('rough-val').textContent = part.roughness.toFixed(2);
+            document.getElementById('metal-val').textContent = part.metalness.toFixed(2);
+            document.getElementById('opacity-val').textContent = (part.opacity !== undefined ? part.opacity : 1.0).toFixed(2);
+
+            // Update texture preview
+            const texturePreview = document.getElementById('texture-preview');
+            const texturePreviewImg = document.getElementById('texture-preview-img');
+            if (part.textureDataUrl) {
+                texturePreviewImg.src = part.textureDataUrl;
+                texturePreview.style.display = 'block';
+            } else {
+                texturePreview.style.display = 'none';
+            }
+            document.getElementById('part-texture').value = '';
+
+            const sizeContainer = document.getElementById('size-inputs');
+            if (part.type === 'box') {
+                sizeContainer.innerHTML = `
+                    <div class="mini-input"><label>W</label><input type="number" id="part-sw" step="0.01" value="${part.size[0]}" onchange="updatePartSize()"></div>
+                    <div class="mini-input"><label>H</label><input type="number" id="part-sh" step="0.01" value="${part.size[1]}" onchange="updatePartSize()"></div>
+                    <div class="mini-input"><label>D</label><input type="number" id="part-sd" step="0.01" value="${part.size[2]}" onchange="updatePartSize()"></div>
+                `;
+            } else if (part.type === 'cylinder') {
+                sizeContainer.innerHTML = `
+                    <div class="mini-input"><label>Radius</label><input type="number" id="part-sr" step="0.01" value="${part.size[0]}" onchange="updatePartSize()"></div>
+                    <div class="mini-input"><label>Height</label><input type="number" id="part-sh" step="0.01" value="${part.size[1]}" onchange="updatePartSize()"></div>
+                    <div class="mini-input"></div>
+                `;
+            } else if (part.type === 'sphere') {
+                sizeContainer.innerHTML = `
+                    <div class="mini-input"><label>Radius</label><input type="number" id="part-sr" step="0.01" value="${part.size[0]}" onchange="updatePartSize()"></div>
+                    <div class="mini-input"></div><div class="mini-input"></div>
+                `;
+            }
+        }
+
+        function hidePartEditor() {
+            document.getElementById('part-editor').style.display = 'none';
+        }
+
+        window.updatePartName = function () {
+            const part = parts.find(p => p.id === selectedPartId);
+            if (!part) return;
+            part.name = document.getElementById('part-name').value;
+            document.getElementById('edit-part-name').textContent = part.name;
+            renderPartsList();
+        };
+
+        window.updatePartTransform = function () {
+            const part = parts.find(p => p.id === selectedPartId);
+            if (!part) return;
+            part.pos = [
+                parseFloat(document.getElementById('part-px').value) || 0,
+                parseFloat(document.getElementById('part-py').value) || 0,
+                parseFloat(document.getElementById('part-pz').value) || 0
+            ];
+            part.rot = [
+                parseFloat(document.getElementById('part-rx').value) || 0,
+                parseFloat(document.getElementById('part-ry').value) || 0,
+                parseFloat(document.getElementById('part-rz').value) || 0
+            ];
+            part.mesh.position.set(part.pos[0], part.pos[1], part.pos[2]);
+            part.mesh.rotation.set(
+                THREE.MathUtils.degToRad(part.rot[0]),
+                THREE.MathUtils.degToRad(part.rot[1]),
+                THREE.MathUtils.degToRad(part.rot[2])
+            );
+        };
+
+        window.updatePartSize = function () {
+            const part = parts.find(p => p.id === selectedPartId);
+            if (!part) return;
+            if (part.type === 'box') {
+                part.size = [
+                    parseFloat(document.getElementById('part-sw').value) || 0.1,
+                    parseFloat(document.getElementById('part-sh').value) || 0.1,
+                    parseFloat(document.getElementById('part-sd').value) || 0.1
+                ];
+            } else if (part.type === 'cylinder') {
+                part.size = [
+                    parseFloat(document.getElementById('part-sr').value) || 0.03,
+                    parseFloat(document.getElementById('part-sh').value) || 0.2
+                ];
+            } else if (part.type === 'sphere') {
+                part.size = [parseFloat(document.getElementById('part-sr').value) || 0.05];
+            }
+            createPartMesh(part);
+        };
+
+        window.updatePartMaterial = function () {
+            const part = parts.find(p => p.id === selectedPartId);
+            if (!part) return;
+            part.color = document.getElementById('part-color').value;
+            part.roughness = parseFloat(document.getElementById('part-roughness').value);
+            part.metalness = parseFloat(document.getElementById('part-metalness').value);
+            part.opacity = parseFloat(document.getElementById('part-opacity').value);
+            document.getElementById('rough-val').textContent = part.roughness.toFixed(2);
+            document.getElementById('metal-val').textContent = part.metalness.toFixed(2);
+            document.getElementById('opacity-val').textContent = part.opacity.toFixed(2);
+            part.mesh.material.color.set(part.color);
+            part.mesh.material.roughness = part.roughness;
+            part.mesh.material.metalness = part.metalness;
+            part.mesh.material.opacity = part.opacity;
+            part.mesh.material.transparent = part.opacity < 1.0;
+            // Important: depthWrite should be false for transparent objects to render correctly
+            part.mesh.material.depthWrite = part.opacity >= 1.0;
+            part.mesh.material.needsUpdate = true;
+        };
+
+        window.updatePartTexture = function () {
+            const part = parts.find(p => p.id === selectedPartId);
+            if (!part) return;
+            const fileInput = document.getElementById('part-texture');
+            if (fileInput.files && fileInput.files[0]) {
+                const file = fileInput.files[0];
+                const isVideo = file.type.startsWith('video/');
+
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    part.textureDataUrl = e.target.result;
+                    part.isVideoTexture = isVideo;
+
+                    const previewImg = document.getElementById('texture-preview-img');
+                    const previewVideo = document.getElementById('texture-preview-video');
+
+                    if (isVideo) {
+                        // Create video element for VideoTexture
+                        const video = document.createElement('video');
+                        video.src = e.target.result;
+                        video.loop = true;
+                        video.muted = true;
+                        video.playsInline = true;
+                        video.autoplay = true;
+
+                        video.addEventListener('loadeddata', function () {
+                            video.play();
+                            const videoTexture = new THREE.VideoTexture(video);
+                            videoTexture.minFilter = THREE.LinearFilter;
+                            videoTexture.magFilter = THREE.LinearFilter;
+                            part.texture = videoTexture;
+                            part.videoElement = video;
+                            part.mesh.material.map = videoTexture;
+                            part.mesh.material.needsUpdate = true;
+                        });
+
+                        // Show video preview
+                        previewImg.style.display = 'none';
+                        previewVideo.src = e.target.result;
+                        previewVideo.style.display = 'block';
+                        document.getElementById('texture-preview').style.display = 'block';
+                    } else {
+                        // Load as regular image texture
+                        const loader = new THREE.TextureLoader();
+                        loader.load(e.target.result, function (texture) {
+                            part.texture = texture;
+                            part.mesh.material.map = texture;
+                            part.mesh.material.needsUpdate = true;
+                            // Show image preview
+                            previewImg.src = e.target.result;
+                            previewImg.style.display = 'block';
+                            previewVideo.style.display = 'none';
+                            document.getElementById('texture-preview').style.display = 'block';
+                        });
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        window.clearPartTexture = function () {
+            const part = parts.find(p => p.id === selectedPartId);
+            if (!part) return;
+
+            // Stop and clean up video if it was a video texture
+            if (part.videoElement) {
+                part.videoElement.pause();
+                part.videoElement.src = '';
+                part.videoElement = null;
+            }
+
+            part.texture = null;
+            part.textureDataUrl = null;
+            part.isVideoTexture = false;
+            part.mesh.material.map = null;
+            part.mesh.material.needsUpdate = true;
+
+            document.getElementById('texture-preview').style.display = 'none';
+            document.getElementById('texture-preview-img').style.display = 'block';
+            document.getElementById('texture-preview-video').style.display = 'none';
+            document.getElementById('texture-preview-video').src = '';
+            document.getElementById('part-texture').value = '';
+        };
+
+        window.deletePart = function (id) {
+            const idx = parts.findIndex(p => p.id === id);
+            if (idx !== -1) {
+                // Remove mesh from scene
+                if (parts[idx].mesh) {
+                    partsGroup.remove(parts[idx].mesh);
+                    if (parts[idx].mesh.geometry) parts[idx].mesh.geometry.dispose();
+                }
+
+                parts.splice(idx, 1);
+
+                // Deselect if this was selected
+                if (selectedPartId === id) {
+                    selectedPartId = null;
+                    showPartEditor();
+                    transformControls.detach();
+                }
+
+                // Remove from multi-select list
+                selectedPartIds = selectedPartIds.filter(pid => pid !== id);
+
+                renderPartsList();
+            }
+        };
+
+        window.deleteSelected = function () {
+            const ids = selectedPartIds.length > 0 ? [...selectedPartIds] : (selectedPartId ? [selectedPartId] : []);
+            if (ids.length === 0) return;
+
+            ids.forEach(id => {
+                const idx = parts.findIndex(p => p.id === id);
+                if (idx !== -1) {
+                    if (parts[idx].mesh) {
+                        partsGroup.remove(parts[idx].mesh);
+                        if (parts[idx].mesh.geometry) parts[idx].mesh.geometry.dispose();
+                    }
+                    parts[idx]._markedForDelete = true;
+                }
+            });
+
+            // Remove marked parts
+            parts = parts.filter(p => !p._markedForDelete);
+
+            // Clear selection
+            selectedPartId = null;
+            selectedPartIds = [];
+
+            hidePartEditor();
+            transformControls.detach();
+            renderPartsList();
+            updateInfo('Deleted ' + ids.length + ' parts');
+        };
+
+        function clonePartImpl(original) {
+            const newId = ++partIdCounter;
+            const part = {
+                id: newId,
+                name: original.name + '_copy',
+                type: original.type,
+                pos: [...original.pos],
+                rot: [...original.rot],
+                size: [...original.size],
+                color: original.color,
+                roughness: original.roughness,
+                metalness: original.metalness,
+                opacity: original.opacity !== undefined ? original.opacity : 1.0,
+                texture: original.texture,
+                textureDataUrl: original.textureDataUrl,
+                mesh: null
+            };
+            parts.push(part);
+            createPartMesh(part);
+            return part;
+        }
+
+        window.duplicatePart = function (id) {
+            const original = parts.find(p => p.id === id);
+            if (!original) return;
+            const newPart = clonePartImpl(original);
+            selectPart(newPart.id);
+            renderPartsList();
+            updateInfo('Duplicated: ' + original.name);
+        };
+
+        window.duplicateSelected = function () {
+            const ids = selectedPartIds.length > 0 ? [...selectedPartIds] : (selectedPartId ? [selectedPartId] : []);
+            if (ids.length === 0) return;
+
+            const newIds = [];
+            ids.forEach(id => {
+                const original = parts.find(p => p.id === id);
+                if (original) {
+                    const newPart = clonePartImpl(original);
+                    newIds.push(newPart.id);
+                }
+            });
+
+            if (newIds.length > 0) {
+                // Select the first one to trigger editor setup
+                selectPart(newIds[0]);
+                // Then override for multi-selection
+                selectedPartIds = [...newIds];
+                updateSelectionHighlights();
+                renderPartsList();
+                updateInfo('Duplicated ' + newIds.length + ' parts');
+            }
+        };
+
+        // === MIRROR PART (X-axis) ===
+        window.mirrorPart = function (id) {
+            const original = parts.find(p => p.id === id);
+            if (!original) return;
+            const newId = ++partIdCounter;
+            const part = {
+                id: newId,
+                name: original.name + '_mirror',
+                type: original.type,
+                pos: [-original.pos[0], original.pos[1], original.pos[2]], // Mirror X
+                rot: [original.rot[0], -original.rot[1], -original.rot[2]], // Mirror rotations
+                size: [...original.size],
+                color: original.color,
+                roughness: original.roughness,
+                metalness: original.metalness,
+                opacity: original.opacity !== undefined ? original.opacity : 1.0,
+                texture: original.texture,
+                textureDataUrl: original.textureDataUrl,
+                mesh: null
+            };
+            parts.push(part);
+            createPartMesh(part);
+            selectPart(newId);
+            renderPartsList();
+            updateInfo('Mirrored: ' + original.name);
+        };
+
+        // === MIRROR SELECTED (Quick Action) ===
+        window.mirrorSelectedX = function () {
+            if (selectedPartIds.length === 0 && !selectedPartId) {
+                updateInfo('No parts selected to mirror');
+                return;
+            }
+            const idsToMirror = selectedPartIds.length > 0 ? [...selectedPartIds] : [selectedPartId];
+            idsToMirror.forEach(id => mirrorPart(id));
+            updateInfo('Mirrored ' + idsToMirror.length + ' part(s)');
+        };
+
+        // === CENTER SELECTED ===
+        window.centerSelected = function () {
+            if (!selectedPartId) {
+                updateInfo('No part selected to center');
+                return;
+            }
+            const part = parts.find(p => p.id === selectedPartId);
+            if (!part) return;
+            part.pos = [0, part.pos[1], part.pos[2]]; // Center X only (common for guns)
+            part.mesh.position.set(part.pos[0], part.pos[1], part.pos[2]);
+            showPartEditor();
+            updateInfo('Centered: ' + part.name);
+        };
+
+        // === SELECT ALL PARTS ===
+        window.selectAllParts = function () {
+            selectedPartIds = parts.map(p => p.id);
+            if (parts.length > 0) {
+                selectedPartId = parts[0].id;
+            }
+            renderPartsList();
+            updateSelectionHighlights();
+            updateInfo('Selected all ' + parts.length + ' parts');
+        };
+
+        // === CLEAR SELECTION ===
+        window.clearSelection = function () {
+            selectedPartIds = [];
+            selectedPartId = null;
+            hidePartEditor();
+            renderPartsList();
+            updateSelectionHighlights();
+            updateInfo('Selection cleared');
+        };
+
+        // === APPLY MATERIAL TO SELECTED ===
+        window.applyMaterialToSelected = function () {
+            if (selectedPartIds.length < 2) {
+                updateInfo('Select multiple parts (Ctrl+Click) to apply material');
+                return;
+            }
+            const primaryPart = parts.find(p => p.id === selectedPartId);
+            if (!primaryPart) return;
+
+            selectedPartIds.forEach(id => {
+                const part = parts.find(p => p.id === id);
+                if (part && part.id !== selectedPartId) {
+                    part.color = primaryPart.color;
+                    part.roughness = primaryPart.roughness;
+                    part.metalness = primaryPart.metalness;
+                    part.opacity = primaryPart.opacity;
+                    part.mesh.material.color.set(part.color);
+                    part.mesh.material.roughness = part.roughness;
+                    part.mesh.material.metalness = part.metalness;
+                    part.mesh.material.opacity = part.opacity;
+                    part.mesh.material.transparent = part.opacity < 1.0;
+                    part.mesh.material.depthWrite = part.opacity >= 1.0;
+                    part.mesh.material.needsUpdate = true;
+                }
+            });
+            updateInfo('Applied material to ' + (selectedPartIds.length - 1) + ' parts');
+        };
+
+        // === GROUP MOVE SELECTED ===
+        window.groupMoveSelected = function () {
+            if (selectedPartIds.length < 1) {
+                updateInfo('Select parts to move');
+                return;
+            }
+            const offsetX = parseFloat(prompt('Move X offset:', '0')) || 0;
+            const offsetY = parseFloat(prompt('Move Y offset:', '0')) || 0;
+            const offsetZ = parseFloat(prompt('Move Z offset:', '0')) || 0;
+
+            selectedPartIds.forEach(id => {
+                const part = parts.find(p => p.id === id);
+                if (part) {
+                    part.pos[0] += offsetX;
+                    part.pos[1] += offsetY;
+                    part.pos[2] += offsetZ;
+                    part.mesh.position.set(part.pos[0], part.pos[1], part.pos[2]);
+                }
+            });
+            showPartEditor();
+            updateInfo('Moved ' + selectedPartIds.length + ' parts');
+        };
+
+        // === KEYBOARD SHORTCUTS ===
+        document.addEventListener('keydown', function (e) {
+            // Don't trigger if typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                deleteSelected();
+            } else if (e.key === 'd' || e.key === 'D') {
+                duplicateSelected();
+            } else if (e.key === 'm' || e.key === 'M') {
+                if (selectedPartId) {
+                    mirrorPart(selectedPartId);
+                }
+            } else if (e.key === 'a' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                selectAllParts();
+            } else if (e.key === 'Escape') {
+                clearSelection();
+                transformControls.detach();
+            } else if (e.key === 'g' || e.key === 'G') {
+                // Move mode
+                setTransformMode('translate');
+            } else if (e.key === 'r' && !e.ctrlKey && !e.metaKey) {
+                // Rotate mode (but not Ctrl+R which is browser refresh)
+                setTransformMode('rotate');
+            } else if (e.key === 's' && !e.ctrlKey && !e.metaKey) {
+                // Scale mode (but not Ctrl+S which is browser save)
+                setTransformMode('scale');
+            } else if (e.key === '+' || e.key === '=') {
+                // Scale up 10%
+                scaleSelectedPart(1.1);
+            } else if (e.key === '-' || e.key === '_') {
+                // Scale down 10%
+                scaleSelectedPart(0.9);
+            } else if (e.key === 'f' || e.key === 'F') {
+                // Focus camera on selected part
+                window.focusSelectedPart();
+            }
+        });
+
+        // Add 'F' to focus camera
+        window.focusSelectedPart = function () {
+            if (!selectedPartId) return;
+            const part = parts.find(p => p.id === selectedPartId);
+            if (part && part.mesh) {
+                const pos = new THREE.Vector3();
+                part.mesh.getWorldPosition(pos);
+                controls.target.copy(pos);
+                controls.update();
+                updateInfo('Focused on ' + part.name);
+            }
+        };
+
+        // === GENERATE CODE (MODULAR FORMAT) ===
+        window.generateCode = function () {
+            const name = document.getElementById('weapon-name').value || 'CustomGun';
+            const safeName = name.replace(/\s+/g, '_').toUpperCase();
+            // PascalCase for function name: first letter uppercase, rest lowercase, no spaces
+            const pascalName = name.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '');
+            const funcName = pascalName.charAt(0).toUpperCase() + pascalName.slice(1).toLowerCase();
+
+            // Stats
+            const damage = document.getElementById('stat-damage').value;
+            const magSize = document.getElementById('stat-magSize').value;
+            const reserveAmmo = document.getElementById('stat-reserveAmmo').value;
+            const reloadTime = document.getElementById('stat-reloadTime').value;
+            const fireRate = document.getElementById('stat-fireRate').value;
+            const barrelLength = document.getElementById('stat-barrelLength').value;
+            const zoomFOV = document.getElementById('stat-zoomFOV').value;
+            const recoilHip = document.getElementById('stat-recoilHip').value;
+            const recoilAds = document.getElementById('stat-recoilAds').value;
+            const spreadHip = document.getElementById('stat-spreadHip').value;
+            const spreadAds = document.getElementById('stat-spreadAds').value;
+
+            // Anim
+            const hipX = document.getElementById('anim-hipX').value;
+            const hipY = document.getElementById('anim-hipY').value;
+            const hipZ = document.getElementById('anim-hipZ').value;
+            const adsX = document.getElementById('anim-adsX').value;
+            const adsY = document.getElementById('anim-adsY').value;
+            const adsZ = document.getElementById('anim-adsZ').value;
+
+            const gScale = parseFloat(document.getElementById('anim-scale').value);
+            const gOffX = parseFloat(document.getElementById('anim-offsetX').value);
+            const gOffY = parseFloat(document.getElementById('anim-offsetY').value);
+            const gOffZ = parseFloat(document.getElementById('anim-offsetZ').value);
+
+            // Build the code string using concatenation to avoid template literal issues
+            let code = "import * as THREE from 'three';\n";
+            code += "import { DEFAULT_FP_ANIM, DEFAULT_TP_ANIM } from '../weapon-constants.js';\n\n";
+
+            // DATA export
+            code += "export const " + safeName + "_DATA = {\n";
+            code += "    name: '" + name + "',\n";
+            code += "    damage: " + damage + ",\n";
+            code += "    magSize: " + magSize + ",\n";
+            code += "    reserveAmmo: " + reserveAmmo + ",\n";
+            code += "    reloadTime: " + reloadTime + ",\n";
+            code += "    fireRate: " + fireRate + ",\n";
+            code += "    hipPosition: new THREE.Vector3(" + hipX + ", " + hipY + ", " + hipZ + "),\n";
+            code += "    adsPosition: new THREE.Vector3(" + adsX + ", " + adsY + ", " + adsZ + "),\n";
+            code += "    barrelLength: " + barrelLength + ",\n";
+            code += "    zoomFOV: " + zoomFOV + ",\n";
+            code += "    recoil: { hip: " + recoilHip + ", ads: " + recoilAds + " },\n";
+            code += "    spread: { hip: " + spreadHip + ", ads: " + spreadAds + " }\n";
+            code += "};\n\n";
+
+            // ANIM export
+            code += "export const " + safeName + "_ANIM = {\n";
+            code += "    fp: {\n";
+            code += "        hipPosition: " + safeName + "_DATA.hipPosition.clone(),\n";
+            code += "        adsPosition: " + safeName + "_DATA.adsPosition.clone(),\n";
+            code += "        sprintPosition: new THREE.Vector3(0, 0, 0),\n";
+            code += "        reloadPosition: new THREE.Vector3(.2, 0.0, -0.65),\n";
+            code += "        reloadRotation: new THREE.Euler(.55, 0, -0.75),\n";
+            code += "        armsOffset: DEFAULT_FP_ANIM.armsOffset.clone(),\n";
+            code += "        forearms: { ...DEFAULT_FP_ANIM.forearms },\n";
+            code += "        hands: { ...DEFAULT_FP_ANIM.hands },\n";
+            code += "        moveOffsets: { ...DEFAULT_FP_ANIM.moveOffsets },\n";
+            code += "        bobSway: { ...DEFAULT_FP_ANIM.bobSway }\n";
+            code += "    },\n";
+            code += "    tp: { ...DEFAULT_TP_ANIM }\n";
+            code += "};\n\n";
+            // MODEL export
+            code += "export function build" + funcName + "Model() {\n";
+            code += "    const gunGroup = new THREE.Group();\n\n";
+
+            // Add Global Scale/Offset logic if they are not default
+            if (gScale !== 1.0) {
+                code += "    // Global adjustments\n";
+                code += "    gunGroup.scale.setScalar(" + gScale + ");\n";
+            }
+            if (gOffX !== 0 || gOffY !== 0 || gOffZ !== 0) {
+                if (gScale === 1.0) code += "    // Global adjustments\n";
+                code += "    gunGroup.position.set(" + gOffX + ", " + gOffY + ", " + gOffZ + ");\n";
+            }
+            code += "\n";
+
+            // Generate geometry code
+            parts.forEach((p, i) => {
+                const vVar = p.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const geoVar = vVar + 'Geo';
+                const matVar = vVar + 'Mat';
+
+                code += "    // " + p.name + "\n";
+                code += "    const " + geoVar + " = ";
+
+                if (p.type === 'box') {
+                    code += "new THREE.BoxGeometry(" + p.size[0] + ", " + p.size[1] + ", " + p.size[2] + ");\n";
+                } else if (p.type === 'cylinder') {
+                    code += "new THREE.CylinderGeometry(" + p.size[0] + ", " + p.size[0] + ", " + p.size[1] + ", 16);\n";
+                } else if (p.type === 'sphere') {
+                    code += "new THREE.SphereGeometry(" + p.size[0] + ", 16, 16);\n";
+                } else if (p.type === 'capsule') {
+                    code += "new THREE.CapsuleGeometry(" + p.size[0] + ", " + p.size[1] + ", 8, 16);\n";
+                } else if (p.type === 'cone') {
+                    code += "new THREE.ConeGeometry(" + p.size[0] + ", " + p.size[1] + ", 16);\n";
+                } else if (p.type === 'torus') {
+                    code += "new THREE.TorusGeometry(" + p.size[0] + ", " + p.size[1] + ", 12, 24);\n";
+                }
+
+                // Build material properties
+                const opacity = p.opacity !== undefined ? p.opacity : 1.0;
+                let matProps = "color: 0x" + p.color.substring(1) + ", roughness: " + p.roughness + ", metalness: " + p.metalness;
+                if (opacity < 1.0) {
+                    matProps += ", opacity: " + opacity + ", transparent: true, depthWrite: false";
+                }
+                code += "    const " + matVar + " = new THREE.MeshStandardMaterial({ " + matProps + " });\n";
+                code += "    const " + vVar + " = new THREE.Mesh(" + geoVar + ", " + matVar + ");\n";
+                code += "    " + vVar + ".position.set(" + p.pos[0] + ", " + p.pos[1] + ", " + p.pos[2] + ");\n";
+
+                if (p.rot[0] !== 0 || p.rot[1] !== 0 || p.rot[2] !== 0) {
+                    const radX = (p.rot[0] * Math.PI / 180).toFixed(4);
+                    const radY = (p.rot[1] * Math.PI / 180).toFixed(4);
+                    const radZ = (p.rot[2] * Math.PI / 180).toFixed(4);
+                    code += "    " + vVar + ".rotation.set(" + radX + ", " + radY + ", " + radZ + ");\n";
+                }
+                code += "    gunGroup.add(" + vVar + ");\n\n";
+            });
+
+            code += "    return gunGroup;\n";
+            code += "}\n";
+
+            // Append Registration Instructions
+            const fileName = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '.js';
+            const vName = str => str.charAt(0).toLowerCase() + str.slice(1);
+
+            code += "\n/*\n";
+            code += "    ✅ INSTALLATION INSTRUCTIONS:\n";
+            code += "    \n";
+            code += "    1. Save this code as: js/entities/guns/" + fileName + "\n";
+            code += "    \n";
+            code += "    2. Open js/entities/weapons.js\n";
+            code += "    \n";
+            code += "    3. Import the new gun:\n";
+            code += "       import { " + safeName + "_DATA, " + safeName + "_ANIM, build" + funcName + "Model } from './guns/" + fileName + "';\n";
+            code += "\n";
+            code += "    4. Add to WEAPONS object:\n";
+            code += "       " + safeName + ": " + safeName + "_DATA,\n";
+            code += "\n";
+            code += "    5. Add to WEAPON_ANIMATIONS object:\n";
+            code += "       " + safeName + ": " + safeName + "_ANIM,\n";
+            code += "\n";
+            code += "    6. Add to prebuildWeaponModels and createGun switch.\n";
+            code += "\n";
+            code += "    7. Open js/core/script.js and add '" + safeName + "' to WEAPON_ORDER array.\n";
+            code += "*/\n";
+
+            document.getElementById('output-code').value = code;
+        };
+
+        window.copyCode = function () {
+            const textarea = document.getElementById('output-code');
+            textarea.select();
+            document.execCommand('copy');
+            updateInfo('Code copied to clipboard!');
+        };
+
+        // Initialize
+        init();
+    </script>
+</body>
+
+</html>

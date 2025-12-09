@@ -19,9 +19,14 @@ export function createInputState() {
 
 export function registerInputListeners({ keys, mouse }, { reload, switchWeapon }) {
     document.body.addEventListener('click', () => {
-        document.body.requestPointerLock().catch(() => {
-            // Suppress pointer lock errors (normal when clicking before page loads or exiting lock)
-        });
+        const target = document.body;
+        if (target && target.ownerDocument === document) {
+            target.requestPointerLock().catch(() => {
+                // Suppress pointer lock errors (normal when clicking before page loads or exiting lock)
+            });
+        } else {
+            // Wrong document (e.g., CSS3D/overlay); skip pointer lock
+        }
     });
 
     window.addEventListener('keydown', (e) => {

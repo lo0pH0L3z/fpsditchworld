@@ -1,117 +1,41 @@
 import * as THREE from 'three';
-import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { HIP_POSITION, ADS_POSITION, DEFAULT_FP_ANIM, DEFAULT_TP_ANIM } from './weapon-constants.js';
 
-const textureLoader = new THREE.TextureLoader();
-const fbxLoader = new FBXLoader();
+// Import Gun Modules
+import { SMG_DATA, SMG_ANIM, buildSmgModel } from './guns/smg.js';
+import { SMG2_DATA, SMG2_ANIM, buildSmg2Model } from './guns/smg2.js';
+import { PISTOL_DATA, PISTOL_ANIM, buildPistolModel, preloadPistolAssets } from './guns/pistol.js';
+import { SNIPER_DATA, SNIPER_ANIM, buildSniperModel } from './guns/sniper.js';
+import { CHLOBANATOR_DATA, CHLOBANATOR_ANIM, buildChlobanatorModel } from './guns/chlobanator.js';
 
-const PISTOL_FBX_PATH = 'assets/FBXgun/source/Lowpoly%20New.fbx';
-const PISTOL_TEXTURE_ROOT = 'assets/FBXgun/textures/';
-const PISTOL_TEXTURE_SETS = {
-    barrel: {
-        map: 'Barrel_albedo.jpg',
-        normalMap: 'Barrel_normal.png',
-        roughnessMap: 'Barrel_roughness.jpg',
-        metalnessMap: 'Barrel_metallic.jpg',
-        aoMap: 'Barrel_AO.jpg'
-    },
-    frame: {
-        map: 'Frame_albedo.jpg',
-        normalMap: 'Frame_normal.png',
-        roughnessMap: 'Frame_roughness.jpg',
-        metalnessMap: 'Frame_metallic.jpg',
-        aoMap: 'Frame_AO.jpg'
-    },
-    slide: {
-        map: 'Slide_albedo.jpg',
-        normalMap: 'Slide_normal.png',
-        roughnessMap: 'Slide_roughness.jpg',
-        metalnessMap: 'Slide_metallic.jpg',
-        aoMap: 'Slide_AO.jpg'
-    },
-    magazine: {
-        map: 'Magazine_albedo.jpg',
-        normalMap: 'Magazine_normal.png',
-        roughnessMap: 'Magazine_roughness.jpg',
-        metalnessMap: 'Magazine_metallic.jpg',
-        aoMap: 'Magazine_AO.jpg'
-    }
-};
-
-const PISTOL_MODEL_ADJUST = {
-    scale: 0.005,
-    rotation: new THREE.Euler(0, 0, 0), // Pistol faces forward
-    position: new THREE.Vector3(0.1, -0.12, -0.25)
-};
-
-let smgMetalTexture = null;
-let pistolFbxTemplate = null;
-const pistolTextureCache = new Map();
-
-// Weapon model cache for instant switching
-const weaponModelCache = {
-    SMG: null,
-    PISTOL: null,
-    SNIPER: null
-};
-
-function getSmgMetalTexture() {
-    if (!smgMetalTexture) {
-        smgMetalTexture = textureLoader.load('assets/textures/smg-metal.jpg');
-        smgMetalTexture.colorSpace = THREE.SRGBColorSpace;
-    }
-    return smgMetalTexture;
-}
-
-export const hipPosition = new THREE.Vector3(0.3, -0.3, -0.5);
-export const adsPosition = new THREE.Vector3(0, -0.21, -0.4);
+// Re-export shared constants for script.js compatibility
+export const hipPosition = HIP_POSITION;
+export const adsPosition = ADS_POSITION;
 export const hipRotation = new THREE.Euler(0, 0, 0);
 export const adsRotation = new THREE.Euler(0, 0, 0);
 
+// --- WEAPON DATA REGISTRY ---
 export const WEAPONS = {
-    SMG: {
-        name: 'SMG',
-        damage: 12,
-        magSize: 50,
-        reserveAmmo: 150,
-        reloadTime: 1.5,
-        fireRate: 100,
-        hipPosition: new THREE.Vector3(0.3, -0.25, -0.5),
-        adsPosition: new THREE.Vector3(0, -0.1, -0.4),
-        barrelLength: 0.3,
-        zoomFOV: 60,
-        recoil: { hip: 0.03, ads: 0.01 },
-        spread: { hip: 0.015, ads: 0.005 }
-    },
-    PISTOL: {
-        name: 'Pistol',
-        damage: 25,
-        magSize: 12,
-        reserveAmmo: 60,
-        reloadTime: 1,
-        fireRate: 250,
-        hipPosition: new THREE.Vector3(0.75, -2.28, -1.38), // user-tuned offsets
-        adsPosition: new THREE.Vector3(-0.10, -1.7, -1.30),
-        barrelLength: 0.22,
-        zoomFOV: 60,
-        recoil: { hip: 0.02, ads: 0.01 },
-        spread: { hip: 0.02, ads: 0.01 }
-    },
-    SNIPER: {
-        name: 'Sniper',
-        damage: 90,
-        magSize: 5,
-        reserveAmmo: 20,
-        reloadTime: 3.0,
-        fireRate: 800,
-        hipPosition: new THREE.Vector3(0.4, -0.3, -0.6),
-        adsPosition: new THREE.Vector3(0, -0.095, -0.3),
-        barrelLength: 0.6,
-        zoomFOV: 20,
-        recoil: { hip: 0.08, ads: 0.02 },
-        spread: { hip: 0.0, ads: 0.0 }
+    SMG: SMG_DATA,
+    SMG2: SMG2_DATA,
+    PISTOL: PISTOL_DATA,
+    SNIPER: SNIPER_DATA,
+    CHLOBANATOR: CHLOBANATOR_DATA
+};
+
+export const WEAPON_ANIMATIONS = {
+    SMG: SMG_ANIM,
+    SMG2: SMG2_ANIM,
+    PISTOL: PISTOL_ANIM,
+    SNIPER: SNIPER_ANIM,
+    CHLOBANATOR: CHLOBANATOR_ANIM,
+    DEFAULT: {
+        fp: DEFAULT_FP_ANIM,
+        tp: DEFAULT_TP_ANIM
     }
 };
 
+// --- DATA ACCESSORS ---
 export function getWeapon(name) {
     return WEAPONS[name];
 }
@@ -124,383 +48,166 @@ export function getDefaultAmmo(name) {
     };
 }
 
-function buildPrimitiveSmg() {
-    const gunGroup = new THREE.Group();
-    const metalTex = getSmgMetalTexture();
-
-    const bodyGeo = new THREE.BoxGeometry(0.1, 0.15, 0.4);
-    const bodyMat = new THREE.MeshStandardMaterial({
-        map: metalTex,
-        roughness: 0.35,
-        metalness: 0.85
-    });
-    gunGroup.add(new THREE.Mesh(bodyGeo, bodyMat));
-
-    const barrelGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.3, 16);
-    const barrelMat = new THREE.MeshStandardMaterial({
-        map: metalTex,
-        color: 0xffffff,
-        roughness: 0.25,
-        metalness: 0.95
-    });
-    const barrel = new THREE.Mesh(barrelGeo, barrelMat);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.z = -0.3;
-    barrel.position.y = 0.05;
-    gunGroup.add(barrel);
-
-    const magGeo = new THREE.BoxGeometry(0.05, 0.2, 0.08);
-    const magMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-    const mag = new THREE.Mesh(magGeo, magMat);
-    mag.position.y = -0.15;
-    mag.position.z = 0.05;
-    gunGroup.add(mag);
-
-    const sightGeo = new THREE.BoxGeometry(0.06, 0.04, 0.02);
-    const sightMat = new THREE.MeshStandardMaterial({
-        color: 0x444444,
-        roughness: 0.5,
-        metalness: 0.8,
-        transparent: true,
-        opacity: 0.3
-    });
-    const sight = new THREE.Mesh(sightGeo, sightMat);
-    sight.position.y = 0.095;
-    sight.position.z = 0.18;
-    gunGroup.add(sight);
-
-    const frontSightGeo = new THREE.BoxGeometry(0.01, 0.05, 0.02);
-    const frontSightMat = new THREE.MeshStandardMaterial({
-        color: 0x444444,
-        transparent: true,
-        opacity: 1
-    });
-    const frontSight = new THREE.Mesh(frontSightGeo, frontSightMat);
-    frontSight.position.y = 0.080;
-    frontSight.position.z = -0.44;
-    gunGroup.add(frontSight);
-
-    return gunGroup;
+// --- ANIMATION CLONING ---
+function cloneVec3(v) {
+    return v ? new THREE.Vector3(v.x, v.y, v.z) : null;
 }
 
-function buildPrimitivePistol() {
-    const gunGroup = new THREE.Group();
-
-    const frameGeo = new THREE.BoxGeometry(0.08, 0.1, 0.2);
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x2e2e2e, roughness: 0.6, metalness: 0.4 });
-    const frame = new THREE.Mesh(frameGeo, frameMat);
-    frame.position.set(0, -0.03, 0);
-    gunGroup.add(frame);
-
-    const slideGeo = new THREE.BoxGeometry(0.08, 0.04, 0.22);
-    const slideMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.4, metalness: 0.7 });
-    const slide = new THREE.Mesh(slideGeo, slideMat);
-    slide.position.set(0, 0.04, -0.02);
-    gunGroup.add(slide);
-
-    const barrelGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.1, 12);
-    const barrelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2, metalness: 0.9 });
-    const barrel = new THREE.Mesh(barrelGeo, barrelMat);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.set(0, 0.03, -0.18);
-    gunGroup.add(barrel);
-
-    const gripGeo = new THREE.BoxGeometry(0.05, 0.12, 0.06);
-    const gripMat = new THREE.MeshStandardMaterial({ color: 0x1f1f1f, roughness: 0.7, metalness: 0.2 });
-    const grip = new THREE.Mesh(gripGeo, gripMat);
-    grip.position.set(0, -0.1, 0.05);
-    grip.rotation.x = 0.2;
-    gunGroup.add(grip);
-
-    return gunGroup;
+function cloneEuler(e) {
+    return e ? new THREE.Euler(e.x, e.y, e.z, e.order) : null;
 }
 
-function buildPrimitiveSniper() {
-    const gunGroup = new THREE.Group();
-
-    const bodyGeo = new THREE.BoxGeometry(0.12, 0.12, 0.5);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.6, metalness: 0.7 });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.z = -0.1;
-    gunGroup.add(body);
-
-    const barrelGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.6, 16);
-    const barrelMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.2, metalness: 0.95 });
-    const barrel = new THREE.Mesh(barrelGeo, barrelMat);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.z = -0.5;
-    barrel.position.y = 0.04;
-    gunGroup.add(barrel);
-
-    const boltGeo = new THREE.BoxGeometry(0.08, 0.08, 0.15);
-    const bolt = new THREE.Mesh(boltGeo, bodyMat);
-    bolt.position.z = 0.2;
-    bolt.position.y = 0.02;
-    gunGroup.add(bolt);
-
-    const magGeo = new THREE.BoxGeometry(0.04, 0.15, 0.06);
-    const magMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
-    const mag = new THREE.Mesh(magGeo, magMat);
-    mag.position.y = -0.12;
-    mag.position.z = 0.0;
-    gunGroup.add(mag);
-
-    const scopeRingGeo = new THREE.TorusGeometry(0.04, 0.01, 8, 16);
-    const scopeMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8 });
-    const scopeRing1 = new THREE.Mesh(scopeRingGeo, scopeMat);
-    scopeRing1.rotation.y = Math.PI / 2;
-    scopeRing1.position.y = 0.095;
-    scopeRing1.position.z = 0.1;
-    gunGroup.add(scopeRing1);
-
-    const scopeRing2 = new THREE.Mesh(scopeRingGeo, scopeMat);
-    scopeRing2.rotation.y = Math.PI / 2;
-    scopeRing2.position.y = 0.095;
-    scopeRing2.position.z = -0.2;
-    gunGroup.add(scopeRing2);
-
-    const scopeTubeGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.35, 16);
-    const scopeTube = new THREE.Mesh(scopeTubeGeo, new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.6 }));
-    scopeTube.rotation.x = Math.PI / 2;
-    scopeTube.position.y = 0.095;
-    scopeTube.position.z = -0.05;
-    gunGroup.add(scopeTube);
-
-    const stockGeo = new THREE.BoxGeometry(0.1, 0.15, 0.2);
-    const stockMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 0.8, metalness: 0.1 });
-    const stock = new THREE.Mesh(stockGeo, stockMat);
-    stock.position.z = 0.4;
-    stock.position.y = -0.02;
-    gunGroup.add(stock);
-
-    return gunGroup;
-}
-
-function loadPistolTexture(fileName, isColor = false) {
-    const path = `${PISTOL_TEXTURE_ROOT}${fileName}`;
-    if (pistolTextureCache.has(path)) {
-        return pistolTextureCache.get(path);
-    }
-    const tex = textureLoader.load(path);
-    if (isColor) tex.colorSpace = THREE.SRGBColorSpace;
-    pistolTextureCache.set(path, tex);
-    return tex;
-}
-
-function preloadPistolTexture(fileName, isColor = false) {
-    const path = `${PISTOL_TEXTURE_ROOT}${fileName}`;
-    if (pistolTextureCache.has(path)) {
-        const cached = pistolTextureCache.get(path);
-        if (cached.image && cached.image.complete !== false) return Promise.resolve(cached);
-    }
-    return new Promise((resolve, reject) => {
-        const tex = textureLoader.load(
-            path,
-            (loaded) => resolve(loaded),
-            undefined,
-            (err) => reject(err)
-        );
-        if (isColor) tex.colorSpace = THREE.SRGBColorSpace;
-        pistolTextureCache.set(path, tex);
-    });
-}
-
-function preloadSmgTexture() {
-    if (smgMetalTexture && smgMetalTexture.image && smgMetalTexture.image.complete !== false) {
-        return Promise.resolve(smgMetalTexture);
-    }
-    return new Promise((resolve, reject) => {
-        smgMetalTexture = textureLoader.load(
-            'assets/textures/smg-metal.jpg',
-            (tex) => {
-                tex.colorSpace = THREE.SRGBColorSpace;
-                resolve(tex);
+function cloneAnimProfile(profile) {
+    if (!profile) return cloneAnimProfile(WEAPON_ANIMATIONS.DEFAULT);
+    const bobSway = profile.fp?.bobSway || DEFAULT_FP_ANIM.bobSway;
+    return {
+        fp: {
+            hipPosition: cloneVec3(profile.fp?.hipPosition) || cloneVec3(DEFAULT_FP_ANIM.hipPosition),
+            adsPosition: cloneVec3(profile.fp?.adsPosition) || cloneVec3(DEFAULT_FP_ANIM.adsPosition),
+            sprintPosition: cloneVec3(profile.fp?.sprintPosition) || cloneVec3(DEFAULT_FP_ANIM.sprintPosition),
+            sprintRotation: cloneEuler(profile.fp?.sprintRotation) || cloneEuler(DEFAULT_FP_ANIM.sprintRotation),
+            reloadPosition: cloneVec3(profile.fp?.reloadPosition) || cloneVec3(DEFAULT_FP_ANIM.reloadPosition),
+            reloadRotation: cloneEuler(profile.fp?.reloadRotation) || cloneEuler(DEFAULT_FP_ANIM.reloadRotation),
+            armsOffset: cloneVec3(profile.fp?.armsOffset) || cloneVec3(DEFAULT_FP_ANIM.armsOffset),
+            forearms: {
+                left: {
+                    position: cloneVec3(profile.fp?.forearms?.left?.position) || cloneVec3(DEFAULT_FP_ANIM.forearms.left.position),
+                    rotation: cloneEuler(profile.fp?.forearms?.left?.rotation) || cloneEuler(DEFAULT_FP_ANIM.forearms.left.rotation)
+                },
+                right: {
+                    position: cloneVec3(profile.fp?.forearms?.right?.position) || cloneVec3(DEFAULT_FP_ANIM.forearms.right.position),
+                    rotation: cloneEuler(profile.fp?.forearms?.right?.rotation) || cloneEuler(DEFAULT_FP_ANIM.forearms.right.rotation)
+                }
             },
-            undefined,
-            (err) => reject(err)
-        );
-    });
-}
-
-function applyPistolTextures(material) {
-    const name = material.name ? material.name.toLowerCase() : '';
-    const setKey = Object.keys(PISTOL_TEXTURE_SETS).find(key => name.includes(key));
-    if (!setKey) return;
-
-    const maps = PISTOL_TEXTURE_SETS[setKey];
-    if (maps.map) material.map = loadPistolTexture(maps.map, true);
-    if (maps.normalMap) material.normalMap = loadPistolTexture(maps.normalMap);
-    if (maps.roughnessMap) material.roughnessMap = loadPistolTexture(maps.roughnessMap);
-    if (maps.metalnessMap) material.metalnessMap = loadPistolTexture(maps.metalnessMap);
-    if (maps.aoMap) material.aoMap = loadPistolTexture(maps.aoMap);
-    material.needsUpdate = true;
-}
-
-function loadPistolModel() {
-    if (pistolFbxTemplate) {
-        return Promise.resolve(pistolFbxTemplate);
-    }
-
-    return new Promise((resolve, reject) => {
-        // Set resource path to textures folder to prevent 404s on relative paths
-        fbxLoader.setResourcePath(PISTOL_TEXTURE_ROOT);
-        fbxLoader.load(
-            PISTOL_FBX_PATH,
-            (fbx) => {
-                fbx.scale.setScalar(PISTOL_MODEL_ADJUST.scale);
-                fbx.rotation.copy(PISTOL_MODEL_ADJUST.rotation);
-                fbx.position.copy(PISTOL_MODEL_ADJUST.position);
-
-                fbx.traverse((child) => {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                        if (child.material) {
-                            applyPistolTextures(child.material);
-                        }
-                    }
-                });
-
-                pistolFbxTemplate = fbx;
-                resolve(fbx);
+            hands: {
+                left: {
+                    position: cloneVec3(profile.fp?.hands?.left?.position) || cloneVec3(DEFAULT_FP_ANIM.hands.left.position),
+                    rotation: cloneEuler(profile.fp?.hands?.left?.rotation) || cloneEuler(DEFAULT_FP_ANIM.hands.left.rotation)
+                },
+                right: {
+                    position: cloneVec3(profile.fp?.hands?.right?.position) || cloneVec3(DEFAULT_FP_ANIM.hands.right.position),
+                    rotation: cloneEuler(profile.fp?.hands?.right?.rotation) || cloneEuler(DEFAULT_FP_ANIM.hands.right.rotation)
+                }
             },
-            undefined,
-            (err) => reject(err)
-        );
-    });
+            moveOffsets: {
+                walk: cloneVec3(profile.fp?.moveOffsets?.walk) || cloneVec3(DEFAULT_FP_ANIM.moveOffsets.walk),
+                sprint: cloneVec3(profile.fp?.moveOffsets?.sprint) || cloneVec3(DEFAULT_FP_ANIM.moveOffsets.sprint)
+            },
+            bobSway: {
+                walk: { ...DEFAULT_FP_ANIM.bobSway.walk, ...(bobSway.walk || {}) },
+                sprint: { ...DEFAULT_FP_ANIM.bobSway.sprint, ...(bobSway.sprint || {}) },
+                ads: { ...DEFAULT_FP_ANIM.bobSway.ads, ...(bobSway.ads || {}) }
+            }
+        },
+        tp: {
+            handSocket: {
+                position: cloneVec3(profile.tp?.handSocket?.position) || cloneVec3(DEFAULT_TP_ANIM.handSocket.position),
+                rotation: cloneEuler(profile.tp?.handSocket?.rotation) || cloneEuler(DEFAULT_TP_ANIM.handSocket.rotation)
+            },
+            aimOffset: cloneEuler(profile.tp?.aimOffset) || cloneEuler(DEFAULT_TP_ANIM.aimOffset),
+            idleWeaponRotation: cloneEuler(profile.tp?.idleWeaponRotation) || cloneEuler(DEFAULT_TP_ANIM.idleWeaponRotation)
+        }
+    };
 }
 
+export function getWeaponAnimConfig(name) {
+    return cloneAnimProfile(WEAPON_ANIMATIONS[name] || WEAPON_ANIMATIONS.DEFAULT);
+}
+
+// --- MODEL CACHE ---
+const weaponModelCache = {
+    SMG: null,
+    SMG2: null,
+    PISTOL: null,
+    SNIPER: null,
+    CHLOBANATOR: null
+};
+
+// --- ASSET PRELOADING ---
 export function preloadWeaponAssets() {
-    const pistolMaps = Object.values(PISTOL_TEXTURE_SETS).flatMap((maps) => [
-        maps.map ? preloadPistolTexture(maps.map, true) : null,
-        maps.normalMap ? preloadPistolTexture(maps.normalMap) : null,
-        maps.roughnessMap ? preloadPistolTexture(maps.roughnessMap) : null,
-        maps.metalnessMap ? preloadPistolTexture(maps.metalnessMap) : null,
-        maps.aoMap ? preloadPistolTexture(maps.aoMap) : null
-    ]).filter(Boolean);
-
-    const tasks = [
-        preloadSmgTexture(),
-        loadPistolModel()
-            .then((fbx) => {
-                // Clone once to validate the model is ready (helps surface load errors early)
-                pistolFbxTemplate = fbx;
-                return fbx;
-            })
-            .catch((err) => {
-                console.warn('[Weapons] Pistol FBX preload failed:', err);
-                return null;
-            }),
-        ...pistolMaps
-    ];
-
-    return Promise.all(tasks);
+    // Only Pistol currently has external assets (FBX/Textures) that need async loading
+    // SMG metal texture is handled internally in buildSmgModel's first call or we could export a preloader from there if we wanted strictly parallel loading.
+    // For now, let's just make sure Pistol is ready.
+    return preloadPistolAssets();
 }
 
+// --- MODEL PRE-BUILDING ---
 export async function prebuildWeaponModels() {
     const startTime = performance.now();
     console.log('[Weapons] 🔧 Pre-building weapon models...');
 
-    // Build SMG
+    // SMG
     const smgStart = performance.now();
     const smgGroup = new THREE.Group();
-    smgGroup.add(buildPrimitiveSmg());
+    smgGroup.add(buildSmgModel());
     weaponModelCache.SMG = smgGroup;
     console.log(`[Weapons] ✅ SMG model built (${(performance.now() - smgStart).toFixed(2)}ms)`);
 
-    // Build Pistol (wait for FBX if available)
+    // SMG2
+    const smg2Start = performance.now();
+    const smg2Group = new THREE.Group();
+    smg2Group.add(buildSmg2Model());
+    weaponModelCache.SMG2 = smg2Group;
+    console.log(`[Weapons] ✅ SMG2 model built (${(performance.now() - smg2Start).toFixed(2)}ms)`);
+
+    // PISTOL
     const pistolStart = performance.now();
     const pistolGroup = new THREE.Group();
-    if (pistolFbxTemplate) {
-        console.log('[Weapons] 🔫 Cloning pistol FBX template...');
-        const model = pistolFbxTemplate.clone(true);
-        console.log('[Weapons] 📦 Pistol FBX cloned, adding to group...');
-        pistolGroup.add(model);
-        console.log(`[Weapons] ✅ Pistol model built (FBX) (${(performance.now() - pistolStart).toFixed(2)}ms)`);
-    } else {
-        pistolGroup.add(buildPrimitivePistol());
-        console.log(`[Weapons] ⚠️ Pistol model built (primitive fallback) (${(performance.now() - pistolStart).toFixed(2)}ms)`);
-    }
+    pistolGroup.add(buildPistolModel());
     weaponModelCache.PISTOL = pistolGroup;
-    console.log('[Weapons] 💾 Pistol cached:', weaponModelCache.PISTOL ? 'YES' : 'NO');
+    console.log(`[Weapons] ✅ Pistol model built (${(performance.now() - pistolStart).toFixed(2)}ms)`);
 
-    // Build Sniper
+    // SNIPER
     const sniperStart = performance.now();
     const sniperGroup = new THREE.Group();
-    sniperGroup.add(buildPrimitiveSniper());
+    sniperGroup.add(buildSniperModel());
     weaponModelCache.SNIPER = sniperGroup;
     console.log(`[Weapons] ✅ Sniper model built (${(performance.now() - sniperStart).toFixed(2)}ms)`);
+
+    // CHLOBANATOR
+    const chloStart = performance.now();
+    const chloGroup = new THREE.Group();
+    chloGroup.add(buildChlobanatorModel());
+    weaponModelCache.CHLOBANATOR = chloGroup;
+    console.log(`[Weapons] ✅ CHLOBANATOR model built (${(performance.now() - chloStart).toFixed(2)}ms)`);
 
     const totalTime = performance.now() - startTime;
     console.log(`[Weapons] 🎮 All weapon models cached and ready (Total: ${totalTime.toFixed(2)}ms)`);
 
-    // Return the models for GPU prewarming
-    return {
-        SMG: smgGroup,
-        PISTOL: pistolGroup,
-        SNIPER: sniperGroup
-    };
+    return weaponModelCache;
 }
 
+// --- FACTORY ---
 export function createGun(scene, camera, weaponType = 'SMG', existingGunGroup = null) {
     const startTime = performance.now();
-    // console.log(`[Weapons] 🔄 createGun called for ${weaponType}`);
 
     if (existingGunGroup) {
         camera.remove(existingGunGroup);
-        // console.log('[Weapons] 🗑️ Removed existing gun group');
     }
 
     let gunGroup;
 
-    // Check cache status
-    /*
-    console.log('[Weapons] 💾 Cache status:', {
-        SMG: weaponModelCache.SMG ? 'CACHED' : 'MISSING',
-        PISTOL: weaponModelCache.PISTOL ? 'CACHED' : 'MISSING',
-        SNIPER: weaponModelCache.SNIPER ? 'CACHED' : 'MISSING'
-    });
-    */
-
-    // Use cached weapon model if available (instant switching)
     if (weaponModelCache[weaponType]) {
-        const cloneStart = performance.now();
-        // console.log(`[Weapons] ✅ Found cached ${weaponType} model, cloning...`);
         gunGroup = weaponModelCache[weaponType].clone(true);
-        // console.log(`[Weapons] 📋 Cloned ${weaponType} from cache (${(performance.now() - cloneStart).toFixed(2)}ms)`);
     } else {
-        // Fallback: build on-the-fly (shouldn't happen if prebuild was called)
         console.warn(`[Weapons] ⚠️ NO CACHED MODEL for ${weaponType}, building on-the-fly!`);
-        const buildStart = performance.now();
         gunGroup = new THREE.Group();
-
-        if (weaponType === 'SMG') {
-            gunGroup.add(buildPrimitiveSmg());
-        } else if (weaponType === 'PISTOL') {
-            console.warn('[Weapons] 🔫 Building pistol on-the-fly!');
-            if (pistolFbxTemplate) {
-                console.log('[Weapons] Cloning pistol FBX template...');
-                const model = pistolFbxTemplate.clone(true);
-                console.log('[Weapons] Adding pistol model to group...');
-                gunGroup.add(model);
-            } else {
-                console.warn('[Weapons] No FBX template, using primitive!');
-                gunGroup.add(buildPrimitivePistol());
-            }
-        } else if (weaponType === 'SNIPER') {
-            gunGroup.add(buildPrimitiveSniper());
+        switch (weaponType) {
+            case 'SMG': gunGroup.add(buildSmgModel()); break;
+            case 'SMG2': gunGroup.add(buildSmg2Model()); break;
+            case 'PISTOL': gunGroup.add(buildPistolModel()); break;
+            case 'SNIPER': gunGroup.add(buildSniperModel()); break;
+            case 'CHLOBANATOR': gunGroup.add(buildChlobanatorModel()); break;
+            default: gunGroup.add(buildSmgModel()); break;
         }
-        console.log(`[Weapons] Built ${weaponType} on-the-fly (${(performance.now() - buildStart).toFixed(2)}ms)`);
     }
 
-    const addStart = performance.now();
     camera.add(gunGroup);
     scene.add(camera);
-    // console.log(`[Weapons] Added to scene (${(performance.now() - addStart).toFixed(2)}ms)`);
 
-    gunGroup.position.copy(WEAPONS[weaponType].hipPosition);
+    const animConfig = getWeaponAnimConfig(weaponType);
+    const initialPos = animConfig.fp?.hipPosition || WEAPONS[weaponType]?.hipPosition || hipPosition;
+    gunGroup.position.copy(initialPos);
 
-    const totalTime = performance.now() - startTime;
-    // console.log(`[Weapons] ✨ createGun complete for ${weaponType} (Total: ${totalTime.toFixed(2)}ms)`);
     return gunGroup;
 }

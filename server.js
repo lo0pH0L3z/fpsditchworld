@@ -26,6 +26,9 @@ app.use(express.static(path.join(__dirname)));
 const players = new Map();
 const rooms = new Map();
 
+// Defaults
+const DEFAULT_SPAWN = { x: 0, y: 1.6, z: 0 };
+
 // Helper functions
 function generatePlayerId() {
     return Math.random().toString(36).substring(2, 15);
@@ -51,7 +54,9 @@ io.on('connection', (socket) => {
         const playerData = {
             id: playerId,
             name: data.name || `Player${getPlayerCount() + 1}`,
-            position: { x: 0, y: 0, z: 0 },
+            position: data.position && typeof data.position.y === 'number'
+                ? data.position
+                : { ...DEFAULT_SPAWN },
             rotation: { x: 0, y: 0, z: 0 },
             health: 100,
 

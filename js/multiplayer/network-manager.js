@@ -12,6 +12,7 @@ export class NetworkManager {
         this.voiceChat = new VoiceChat(this); // Initialize VoiceChat
         this.playerId = null;
         this.remotePlayers = new Map();
+        this.initialPosition = { x: 0, y: 1.6, z: 0 };
         // Use current origin in production; fallback to localhost for local dev
         const host = window.location.hostname;
         const isLocalhost = ['localhost', '127.0.0.1'].includes(host);
@@ -134,7 +135,8 @@ export class NetworkManager {
             // Join game
             this.socket.emit('player-join', {
                 name: this.playerName,
-                roomId: this.roomId
+                roomId: this.roomId,
+                position: this.initialPosition
             });
         });
 
@@ -434,6 +436,18 @@ export class NetworkManager {
      */
     getPlayerId() {
         return this.playerId;
+    }
+
+    /**
+     * Set initial spawn position to send on join
+     */
+    setInitialPosition(pos) {
+        if (!pos) return;
+        this.initialPosition = {
+            x: pos.x ?? this.initialPosition.x,
+            y: pos.y ?? this.initialPosition.y,
+            z: pos.z ?? this.initialPosition.z
+        };
     }
 
     /**

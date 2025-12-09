@@ -1,7 +1,7 @@
 
 import * as THREE from 'three';
 import { playShootSound, playHitSound, playEmptyClickSound, playMagEjectSound, playMagInsertSound, warmupAudio } from '../input/audio.js';
-import { WEAPONS, hipPosition, adsPosition, createGun, preloadWeaponAssets, prebuildWeaponModels } from '../entities/weapons.js';
+import { WEAPONS, hipPosition, adsPosition, createGun, preloadWeaponAssets, prebuildWeaponModels, getWeaponAnimConfig } from '../entities/weapons.js';
 import { createEnvironment, buildLights, preloadEnvironmentAssets } from '../locations/world.js';
 import { createFiringRange } from '../locations/firing-range.js';
 import { CollisionManager } from './collisions.js';
@@ -25,6 +25,7 @@ import { createTrees, preloadTrees } from '../locations/trees.js';
 import { preloadRadioTower, createRadioTower } from '../locations/radiotower.js';
 import { preloadLookout, createLookout } from '../locations/lookout.js';
 import { preloadWarehouse, createWarehouse } from '../locations/warehouse.js';
+import { initCamera, getCamera, getGunCamera, updateLook as updateCameraLook, updateCameraFov as updateCameraFovModule, syncGunCamera, onCameraResize, setLookSpeeds, getPitch, getYaw, setPitch, isInLandingRecovery, startLandingRecovery, applyRecoil } from './camera.js';
 
 // --- Config & State ---
 const CONFIG = {
@@ -73,30 +74,26 @@ let composer;
 let lastTime = 0;
 let gameState = GameState.PLAYING;
 
-let currentLookSpeedH = CONFIG.look.baseH;
-let currentLookSpeedV = CONFIG.look.baseV;
-let pitch = 0;
-let yaw = 0;
+// Note: currentLookSpeedH/V, pitch, yaw now managed by camera.js module
 
 // Physics State
 let velocity = new THREE.Vector3();
 let isGrounded = true;
 let isSliding = false;
 let slideTimer = 0;
-// Landing recovery state - ONLY for pitch (front/backflips)
-// Landing recovery state - ONLY for pitch (front/backflips)
-let isLandingRecovery = false;
-let targetRecoveryPitch = 0; // Saved target - calculated once at landing
+// Landing recovery state - now managed by camera.js module
 let landingDip = 0; // Visual dip amount when landing (crouch effect)
 
 // Gun & ADS State
 let gunGroup;
+let armsGroup;
 let isADS = false;
 
 // Weapon System
-const WEAPON_ORDER = ['SMG', 'PISTOL', 'SNIPER'];
+const WEAPON_ORDER = ['SMG', 'SMG2', 'PISTOL', 'SNIPER', 'CHLOBANATOR'];
 let currentWeaponIndex = 0;
 let currentWeapon = WEAPON_ORDER[currentWeaponIndex];
+let currentWeaponAnim = getWeaponAnimConfig(currentWeapon);
 let currentAmmo = WEAPONS[currentWeapon].magSize;
 let reserveAmmo = WEAPONS[currentWeapon].reserveAmmo;
 let isReloading = false;
@@ -270,14 +267,16 @@ async function preloadResources(renderer) {
         const gpuStart = performance.now();
 
         // Helper: force upload texture by rendering 1x1 pixel
-        const warmupWeapon = (weapon) => {
+        const warmupWeapon = (weapon, weaponType) => {
             const originalSize = new THREE.Vector2();
             renderer.getSize(originalSize);
             renderer.setScissor(0, 0, 1, 1);
             renderer.setScissorTest(true);
 
             const clone = weapon.clone(true);
-            clone.position.copy(hipPosition);
+            const animConfig = getWeaponAnimConfig(weaponType);
+            const warmupPos = animConfig.fp?.hipPosition || hipPosition;
+            clone.position.copy(warmupPos);
             clone.position.z = -1; // Frustum check
             camera.add(clone);
             scene.add(camera);
@@ -289,16 +288,17 @@ async function preloadResources(renderer) {
         };
 
         // 1. Warmup SMG IMMEDIATELY (Critical for startup)
-        if (weaponModels.SMG) warmupWeapon(weaponModels.SMG);
+        if (weaponModels.SMG) warmupWeapon(weaponModels.SMG, 'SMG');
 
         // 2. Warmup others in background (Staggered to unblock main thread/INP)
         setTimeout(() => {
-            if (weaponModels.PISTOL) warmupWeapon(weaponModels.PISTOL);
-            console.log('✅ Background: Pistol warmed up');
+            if (weaponModels.SMG2) warmupWeapon(weaponModels.SMG2, 'SMG2');
+            if (weaponModels.PISTOL) warmupWeapon(weaponModels.PISTOL, 'PISTOL');
+            console.log('✅ Background: SMG2 & Pistol warmed up');
         }, 500); // 0.5s later
 
         setTimeout(() => {
-            if (weaponModels.SNIPER) warmupWeapon(weaponModels.SNIPER);
+            if (weaponModels.SNIPER) warmupWeapon(weaponModels.SNIPER, 'SNIPER');
             console.log('✅ Background: Sniper warmed up');
         }, 1000); // 1.0s later
 
@@ -319,22 +319,16 @@ async function preloadResources(renderer) {
 async function init() {
     scene = new THREE.Scene();
 
-    camera = new THREE.PerspectiveCamera(CONFIG.view.baseFov, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.y = CONFIG.physics.baseHeight;
-    camera.position.z = 5;
+    // Initialize cameras via camera module
+    const cameras = initCamera(CONFIG);
+    camera = cameras.camera;
+    gunCamera = cameras.gunCamera;
+
     scene.fog = new THREE.FogExp2(0xbba780, 0.003); // sandy fog to blend with HDR ground
 
     // --- Gun Scene Setup ---
     gunScene = new THREE.Scene();
-    gunCamera = new THREE.PerspectiveCamera(CONFIG.view.baseFov, window.innerWidth / window.innerHeight, 0.1, 1000);
-    gunCamera.position.y = CONFIG.physics.baseHeight;
-    gunCamera.position.z = 5;
     // No fog for the gun scene so it stays crisp
-
-    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-    euler.setFromQuaternion(camera.quaternion);
-    yaw = euler.y;
-    pitch = euler.x;
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -402,6 +396,7 @@ async function init() {
 
     // Consolidate Gun Group
     gunGroup = createGun(gunScene, gunCamera, currentWeapon, gunGroup);
+    attachArmsToGun(currentWeapon);
     targets = spawnTargets(scene, targets);
     updateAmmoDisplay();
     updateHealthUI();
@@ -429,8 +424,8 @@ async function init() {
         },
         onHeadBobEnabledChange: (enabled) => { CONFIG.movement.headBob = enabled; },
         onHeadBobAmountChange: (value) => { CONFIG.movement.headBobAmount = value; },
-        onLookSpeedHChange: (value) => { CONFIG.look.baseH = value; currentLookSpeedH = value; },
-        onLookSpeedVChange: (value) => { CONFIG.look.baseV = value; currentLookSpeedV = value; },
+        onLookSpeedHChange: (value) => { CONFIG.look.baseH = value; setLookSpeeds(value, undefined); },
+        onLookSpeedVChange: (value) => { CONFIG.look.baseV = value; setLookSpeeds(undefined, value); },
         onAdsSpeedChange: (value) => { CONFIG.look.ads = value; },
         onAdsMultiplierHChange: (value) => { CONFIG.look.adsMultiplierH = value; },
         onAdsMultiplierVChange: (value) => { CONFIG.look.adsMultiplierV = value; },
@@ -645,11 +640,7 @@ function clearPingMarkers() {
 }
 
 function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-
-    gunCamera.aspect = window.innerWidth / window.innerHeight;
-    gunCamera.updateProjectionMatrix();
+    onCameraResize();
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     if (composer) composer.setSize(window.innerWidth, window.innerHeight);
@@ -727,15 +718,16 @@ function handleInput(delta) {
         input.lookX = applyDeadzone(rawLookX, 0.2);
         input.lookY = applyDeadzone(rawLookY, 0.2);
 
-        // Debug: detect and log potential stick drift
+        // Debug: detect and log potential stick drift (quieter)
         if (!window._lastDriftLog) window._lastDriftLog = 0;
         if (!window._driftCounter) window._driftCounter = 0;
         const now = performance.now();
 
-        // If we're getting small but non-zero values consistently, it's drift
-        if (Math.abs(rawLookX) > 0.05 && Math.abs(rawLookX) < 0.3) {
+        const driftLow = 0.15;
+        const driftHigh = 0.4;
+        if (Math.abs(rawLookX) > driftLow && Math.abs(rawLookX) < driftHigh) {
             window._driftCounter++;
-            if (window._driftCounter > 60 && now - window._lastDriftLog > 3000) {
+            if (window._driftCounter > 120 && now - window._lastDriftLog > 10000) {
                 console.warn(`🎮 Possible stick drift detected! Raw lookX: ${rawLookX.toFixed(4)} (after deadzone: ${input.lookX.toFixed(4)})`);
                 window._lastDriftLog = now;
                 window._driftCounter = 0;
@@ -931,78 +923,15 @@ function updateAimState(adsValue) {
     // Update motion module's ADS state so it can apply motion-specific ADS multipliers
     setMotionADS(isADS);
     if (isADS) {
-        currentLookSpeedH = CONFIG.look.ads * CONFIG.look.adsMultiplierH;
-        currentLookSpeedV = CONFIG.look.ads * CONFIG.look.adsMultiplierV;
+        setLookSpeeds(CONFIG.look.ads * CONFIG.look.adsMultiplierH, CONFIG.look.ads * CONFIG.look.adsMultiplierV);
     } else {
-        currentLookSpeedH = CONFIG.look.baseH;
-        currentLookSpeedV = CONFIG.look.baseV;
+        setLookSpeeds(CONFIG.look.baseH, CONFIG.look.baseV);
     }
 }
 
 function updateLook(input, delta) {
-    // Run if there is input OR if we are in the middle of a recovery animation
-    if (input.lookX === 0 && input.lookY === 0 && !isLandingRecovery) return;
-
-    // FOV scaling: reduce sensitivity proportionally when zoomed in
-    // Using tangent ratio for accurate angular scaling (common in FPS games)
-    const baseFovRad = (CONFIG.view.baseFov * Math.PI) / 360; // half-angle in radians
-    const currentFovRad = (camera.fov * Math.PI) / 360;
-    const rawFovScale = Math.tan(currentFovRad) / Math.tan(baseFovRad);
-
-    // Apply FOV scaling with enabled toggle and strength blending
-    let fovScale = 1.0;
-    if (CONFIG.look.fovScaleSticks) {
-        // Blend between no scaling (1.0) and full scaling (rawFovScale) based on strength
-        fovScale = 1.0 + (rawFovScale - 1.0) * CONFIG.look.fovScaleSticksStrength;
-    }
-
-    // Update motion module with the raw FOV scale (it handles its own enabled/strength)
-    setMotionFovScale(rawFovScale);
-
-    // === FLIP RECOVERY (Exactly like vehicle crash recovery) ===
-    if (isLandingRecovery) {
-        // Lerp toward the saved target (calculated once when recovery started)
-        pitch = THREE.MathUtils.lerp(pitch, targetRecoveryPitch, 5.0 * delta);
-
-        // Check if recovered (close to target)
-        if (Math.abs(pitch - targetRecoveryPitch) < 0.05) {
-            pitch = 0; // Reset to 0 (clean horizon)
-            isLandingRecovery = false;
-            console.log('✅ Flip recovery complete');
-        }
-
-        // During recovery: DON'T modify yaw at all, just apply current state
-        const euler = new THREE.Euler(pitch, yaw, 0, 'YXZ');
-        camera.quaternion.setFromEuler(euler);
-        return;
-    }
-
-    // Update yaw (we track this ourselves, never read from quaternion)
-    yaw -= input.lookX * currentLookSpeedH * fovScale * delta;
-
-    const invertY = document.getElementById('invert-look').checked ? -1 : 1;
-
-    // Faster pitch control in air for flips
-    const airMult = isGrounded ? 1.0 : CONFIG.look.airMultiplier;
-
-    pitch -= input.lookY * currentLookSpeedV * fovScale * delta * invertY * airMult;
-
-    // Only clamp pitch when grounded (standard FPS limits)
-    // When airborne, allow full rotation for flips
-    if (isGrounded) {
-        // Fix: Normalize pitch to -PI...PI range before clamping
-        // This prevents the camera from snapping to 90 degrees if you land a full 360 flip (2PI)
-        const twoPi = Math.PI * 2;
-        pitch = pitch % twoPi;
-        if (pitch > Math.PI) pitch -= twoPi;
-        if (pitch < -Math.PI) pitch += twoPi;
-
-        pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, pitch));
-    }
-
-    // Apply rotation
-    const euler = new THREE.Euler(pitch, yaw, 0, 'YXZ');
-    camera.quaternion.setFromEuler(euler);
+    // Delegate to camera module
+    updateCameraLook(input, delta, CONFIG, isGrounded);
 }
 
 function updateMovement(input, delta) {
@@ -1250,9 +1179,9 @@ function updateMovement(input, delta) {
         velocity.y = 0;
 
         // When landing or while grounded, check if we need flip recovery
-        if (!isLandingRecovery) {
+        if (!isInLandingRecovery()) {
             // Check if pitch is beyond normal looking range
-            let checkPitch = pitch;
+            let checkPitch = getPitch();
             while (checkPitch > Math.PI) checkPitch -= Math.PI * 2;
             while (checkPitch < -Math.PI) checkPitch += Math.PI * 2;
 
@@ -1261,20 +1190,8 @@ function updateMovement(input, delta) {
             const needsRecovery = Math.abs(checkPitch) > flipThreshold;
 
             if (needsRecovery) {
-                // Calculate target - "Roll Out" logic
-                // Instead of finding nearest upright (which might unwind the flip using round),
-                // we want to complete the flip in the direction of rotation.
-                // If pitch > 0 (backflip), go to next multiple (ceil)
-                // If pitch < 0 (frontflip), go to previous multiple (floor)
-                const twoPi = Math.PI * 2;
-                if (pitch > 0) {
-                    targetRecoveryPitch = Math.ceil(pitch / twoPi) * twoPi;
-                } else {
-                    targetRecoveryPitch = Math.floor(pitch / twoPi) * twoPi;
-                }
-
-                isLandingRecovery = true;
-                console.log(`🛬 Flip recovery (Roll Out): ${(pitch * 180 / Math.PI).toFixed(0)}° → ${(targetRecoveryPitch * 180 / Math.PI).toFixed(0)}°`);
+                // Start landing recovery via camera module
+                startLandingRecovery(getPitch());
             }
         }
 
@@ -1324,23 +1241,220 @@ function updateMovement(input, delta) {
     camera.position.z = Math.max(-1000, Math.min(1000, camera.position.z));
 }
 
+function buildFirstPersonArms(animConfig) {
+    const group = new THREE.Group();
+
+    // Simple materials; swap to proper rig/textures later
+    const skinMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffd1a4,
+        roughness: 0.65,
+        metalness: 0.05
+    });
+    const sleeveMaterial = new THREE.MeshStandardMaterial({
+        color: 0x222831,
+        roughness: 0.8,
+        metalness: 0.05
+    });
+
+    // GEO: forearms and hands – shapes stay static; positions/rotations come from per-weapon config
+    const foreGeo = new THREE.CapsuleGeometry(0.09, 0.85, 4, 8);
+    const handGeo = new THREE.BoxGeometry(0.14, 0.08, 0.18);
+
+    const setTransform = (mesh, cfg) => {
+        if (!cfg) return;
+        if (cfg.position) mesh.position.copy(cfg.position);
+        if (cfg.rotation) {
+            mesh.rotation.x = cfg.rotation.x;
+            mesh.rotation.y = cfg.rotation.y;
+            mesh.rotation.z = cfg.rotation.z;
+        }
+    };
+
+    // CONFIG HOOKS (edit in WEAPON_ANIMATIONS):
+    // forearms.left/right.position/rotation controls elbow-to-wrist
+    // hands.left/right.position/rotation controls the grip location
+    const foreCfgL = animConfig?.fp?.forearms?.left;
+    const foreCfgR = animConfig?.fp?.forearms?.right;
+    const handCfgL = animConfig?.fp?.hands?.left;
+    const handCfgR = animConfig?.fp?.hands?.right;
+
+    const leftFore = new THREE.Mesh(foreGeo, sleeveMaterial);
+    setTransform(leftFore, foreCfgL);
+    group.add(leftFore);
+
+    const rightFore = new THREE.Mesh(foreGeo, sleeveMaterial);
+    setTransform(rightFore, foreCfgR);
+    group.add(rightFore);
+
+    const leftHand = new THREE.Mesh(handGeo, skinMaterial);
+    setTransform(leftHand, handCfgL);
+    group.add(leftHand);
+
+    const rightHand = new THREE.Mesh(handGeo, skinMaterial);
+    setTransform(rightHand, handCfgR);
+    group.add(rightHand);
+
+    // Offset to sit near the weapon; per-weapon tuning is supported (armsOffset in WEAPON_ANIMATIONS)
+    if (animConfig?.fp?.armsOffset) {
+        group.position.copy(animConfig.fp.armsOffset);
+    } else {
+        group.position.set(0, 0.05, 0.05);
+    }
+
+    group.userData.parts = {
+        leftFore,
+        rightFore,
+        leftHand,
+        rightHand
+    };
+
+    return group;
+}
+
+function attachArmsToGun(weaponType) {
+    if (!gunGroup) return;
+    if (armsGroup) {
+        gunGroup.remove(armsGroup);
+        armsGroup = null;
+    }
+
+    const animConfig = getWeaponAnimConfig(weaponType);
+    armsGroup = buildFirstPersonArms(animConfig);
+    gunGroup.add(armsGroup);
+}
+
+function lerpEuler(current, target, t) {
+    current.x = THREE.MathUtils.lerp(current.x, target.x, t);
+    current.y = THREE.MathUtils.lerp(current.y, target.y, t);
+    current.z = THREE.MathUtils.lerp(current.z, target.z, t);
+}
+
+function updateArmsRig(delta) {
+    if (!armsGroup || !currentWeaponAnim) return;
+    const parts = armsGroup.userData?.parts || {};
+    const leftFore = parts.leftFore;
+    const leftHand = parts.leftHand;
+
+    if (!leftFore || !leftHand) return;
+
+    const cfg = currentWeaponAnim.fp;
+    // BASE POSES: edit in WEAPON_ANIMATIONS.<weapon>.fp.forearms/hands
+    const baseFore = cfg?.forearms?.left;
+    const baseHand = cfg?.hands?.left;
+    if (!baseFore || !baseHand) return;
+
+    const horizontalSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+    const isMoving = horizontalSpeed > 0.1;
+    const isSprinting = isMoving && !isADS && horizontalSpeed > CONFIG.movement.walkSpeed * 1.05;
+
+    // Target positions
+    const foreTargetPos = (baseFore.position || new THREE.Vector3()).clone();
+    const handTargetPos = (baseHand.position || new THREE.Vector3()).clone();
+    const foreTargetRot = (baseFore.rotation || new THREE.Euler()).clone();
+    const handTargetRot = (baseHand.rotation || new THREE.Euler()).clone();
+
+    // Movement swing when not ADS/reloading
+    if (!isReloading && isMoving && !isADS) {
+        // Debug: push arm to the right while moving, snap back when idle/ADS
+        const offset = isSprinting ? -.5 : -.5;
+
+        foreTargetPos.z += -offset;
+        handTargetPos.z += -offset * 1;
+    }
+
+    // Movement swing when not ADS/reloading
+    if (!isReloading && isMoving && !isADS) {
+        // Debug: push arm to the right while moving, snap back when idle/ADS
+        const offset = isSprinting ? -.5 : -.5;
+        foreTargetPos.x += offset;
+        handTargetPos.x += offset * 1;
+
+    }
+
+    // Movement swing when not ADS/reloading
+    if (!isReloading && isMoving && !isADS) {
+        // Debug: push arm to the right while moving, snap back when idle/ADS
+        const offset = isSprinting ? .1 : .1;
+        foreTargetPos.y += offset;
+        handTargetPos.y += offset * 1;
+
+    }
+
+
+    // Reload pose: move off grip towards mag area
+    if (isReloading) {
+        foreTargetPos.add(new THREE.Vector3(0, -.5, 0));
+        handTargetPos.add(new THREE.Vector3(0, -.5, 0));
+        //  foreTargetRot.x = THREE.MathUtils.lerp(foreTargetRot.x, -Math.PI / 2 + 0.3, 0.5);
+        //  foreTargetRot.z = THREE.MathUtils.lerp(foreTargetRot.z, 0.2, 0.5);
+        //  handTargetRot.z = THREE.MathUtils.lerp(handTargetRot.z, 0.2, 0.5);
+    }
+
+    const lerpPos = 10 * delta;
+    const lerpRot = 10 * delta;
+
+    leftFore.position.lerp(foreTargetPos, lerpPos);
+    leftHand.position.lerp(handTargetPos, lerpPos);
+    lerpEuler(leftFore.rotation, foreTargetRot, lerpRot);
+    lerpEuler(leftHand.rotation, handTargetRot, lerpRot);
+}
+
 function updateGunRig(delta) {
     if (!gunGroup) return;
 
-    const weaponHip = WEAPONS[currentWeapon]?.hipPosition || hipPosition;
-    const weaponAds = WEAPONS[currentWeapon]?.adsPosition || adsPosition;
+    const weaponHip = currentWeaponAnim.fp?.hipPosition || hipPosition;
+    const weaponAds = currentWeaponAnim.fp?.adsPosition || adsPosition;
 
     let targetPos = isADS ? weaponAds : weaponHip;
     let targetRotX = 0;
     let targetRotZ = 0;
 
     if (isReloading) {
-        targetPos = new THREE.Vector3(weaponHip.x, weaponHip.y - 0.2, weaponHip.z);
-        targetRotX = -0.5;
-        targetRotZ = 0.2;
+        const reloadPos = currentWeaponAnim.fp?.reloadPosition;
+        const reloadRot = currentWeaponAnim.fp?.reloadRotation;
+        targetPos = reloadPos || weaponHip;
+        targetRotX = reloadRot ? reloadRot.x : -0.5;
+        targetRotZ = reloadRot ? reloadRot.z : 0.2;
     }
 
-    gunGroup.position.lerp(targetPos, 10 * delta);
+    // Apply movement offsets (for gun/right-hand pose) when walking/sprinting and not ADS/reloading
+    const horizontalSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+    const isMoving = horizontalSpeed > 0.1;
+    const isSprinting = isMoving && !isADS && horizontalSpeed > CONFIG.movement.walkSpeed * 1.05;
+    if (!isReloading && isMoving && !isADS) {
+        const moveOffsets = currentWeaponAnim.fp?.moveOffsets;
+        const offset = isSprinting ? moveOffsets?.sprint : moveOffsets?.walk;
+        if (offset) {
+            targetPos = targetPos.clone().add(offset);
+        }
+    }
+
+    // Apply light sway/bob based on movement (per-weapon tunable)
+    const posWithOffsets = targetPos.clone();
+    if (!isReloading) {
+        const speedNorm = Math.min(1, horizontalSpeed / CONFIG.movement.sprintSpeed);
+        const walkThreshold = CONFIG.movement.walkSpeed * 0.4;
+        const sprintThreshold = CONFIG.movement.walkSpeed * 1.05;
+
+        let bobMode = 'idle';
+        if (isADS) {
+            bobMode = 'ads';
+        } else if (horizontalSpeed > sprintThreshold) {
+            bobMode = 'sprint';
+        } else if (horizontalSpeed > walkThreshold) {
+            bobMode = 'walk';
+        }
+
+        const bobCfg = currentWeaponAnim.fp?.bobSway?.[bobMode] || currentWeaponAnim.fp?.bobSway?.walk || { sway: 0, bob: 0 };
+        if (speedNorm > 0.01) {
+            const bob = (bobCfg.bob || 0) * Math.sin(walkTimer * 2);
+            const sway = (bobCfg.sway || 0) * Math.sin(walkTimer * 2 + Math.PI / 2);
+            posWithOffsets.y += bob * speedNorm;
+            targetRotZ += sway * speedNorm;
+        }
+    }
+
+    gunGroup.position.lerp(posWithOffsets, 10 * delta);
     gunGroup.rotation.x = THREE.MathUtils.lerp(gunGroup.rotation.x, targetRotX, 10 * delta);
     gunGroup.rotation.z = THREE.MathUtils.lerp(gunGroup.rotation.z, targetRotZ, 10 * delta);
 
@@ -1350,14 +1464,8 @@ function updateGunRig(delta) {
 }
 
 function updateCameraFov(delta) {
-    const targetFOV = isADS ? WEAPONS[currentWeapon].zoomFOV : CONFIG.view.baseFov;
-    if (Math.abs(camera.fov - targetFOV) > 0.1) {
-        camera.fov = THREE.MathUtils.lerp(camera.fov, targetFOV, CONFIG.view.adsTransitionSpeed * delta);
-        camera.updateProjectionMatrix();
-
-        gunCamera.fov = camera.fov;
-        gunCamera.updateProjectionMatrix();
-    }
+    // Delegate to camera module
+    updateCameraFovModule(delta, CONFIG, isADS, WEAPONS[currentWeapon]);
 }
 
 function updateScopeOverlay() {
@@ -1370,9 +1478,11 @@ function updateScopeOverlay() {
         if (gunGroup) {
             gunGroup.visible = false;
         }
+        if (armsGroup) armsGroup.visible = false;
     } else {
         scopeOverlay.style.display = 'none';
         if (gunGroup) gunGroup.visible = true;
+        if (armsGroup) armsGroup.visible = true;
     }
 }
 
@@ -1464,9 +1574,7 @@ function shoot(intensity) {
         }
 
         const recoilAmount = isADS ? 0.01 : 0.03;
-        pitch += recoilAmount;
-        const euler = new THREE.Euler(pitch, yaw, 0, 'YXZ');
-        camera.quaternion.setFromEuler(euler);
+        applyRecoil(recoilAmount); // Updates pitch and camera quaternion immediately
 
         createMuzzleFlash();
 
@@ -1786,8 +1894,7 @@ function animate(time) {
         }
 
         // Sync gun camera to main camera
-        gunCamera.position.copy(camera.position);
-        gunCamera.quaternion.copy(camera.quaternion);
+        syncGunCamera();
 
         if (!input) {
             renderScene();
@@ -1812,18 +1919,21 @@ function animate(time) {
 
             // Hide gun when in vehicle
             if (gunGroup) gunGroup.visible = false;
+            if (armsGroup) armsGroup.visible = false;
         } else {
             // Normal on-foot mode
             updateAimState(input.adsValue);
             updateLook(input, delta);
             updateMovement(input, delta);
             updateGunRig(delta);
+            updateArmsRig(delta);
             updateCameraFov(delta);
             updateScopeOverlay();
 
             // Show gun when on foot (unless sniper scope overlay is active)
             const scopeActive = currentWeapon === 'SNIPER' && isADS && !isReloading;
             if (gunGroup && !scopeActive) gunGroup.visible = true;
+            if (armsGroup) armsGroup.visible = !scopeActive;
 
             if (input.shootValue <= 0.1) {
                 emptyClickLocked = false;
@@ -1904,6 +2014,7 @@ function switchWeapon() {
     // Cycle through available weapons (SMG -> PISTOL -> SNIPER)
     currentWeaponIndex = (currentWeaponIndex + 1) % WEAPON_ORDER.length;
     currentWeapon = WEAPON_ORDER[currentWeaponIndex];
+    currentWeaponAnim = getWeaponAnimConfig(currentWeapon);
     isADS = false;
 
     // Reset ammo to the new weapon's stats
@@ -1917,6 +2028,7 @@ function switchWeapon() {
 
     // Rebuild the gun model for the new weapon
     gunGroup = createGun(gunScene, gunCamera, currentWeapon, gunGroup);
+    attachArmsToGun(currentWeapon);
 }
 
 function reload() {
@@ -1958,6 +2070,11 @@ async function initMultiplayer() {
     try {
         console.log('🌐 Initializing multiplayer...');
         networkManager = new NetworkManager();
+        networkManager.setInitialPosition({
+            x: camera.position.x,
+            y: camera.position.y,
+            z: camera.position.z
+        });
         await networkManager.connect();
         await networkManager.initVoiceChat();
 
@@ -2069,6 +2186,45 @@ function setupMultiplayerEvents() {
     networkManager.on('player-fired', (data) => {
         if (data.id !== networkManager.getPlayerId()) {
             playerManager.showMuzzleFlash(data.id);
+        }
+    });
+
+    // Remote damage/kills
+    networkManager.on('player-damaged', (data) => {
+        if (data.targetId === networkManager.getPlayerId()) {
+            // Local player hit - dispatch for UI/armor handling
+            const event = new CustomEvent('local-player-damaged', {
+                detail: {
+                    damage: data.damage,
+                    shooterId: data.shooterId,
+                    serverHealth: data.health,
+                    serverArmor: data.armor
+                }
+            });
+            document.dispatchEvent(event);
+        } else {
+            playerManager.updatePlayerHealth(data.targetId, data.health);
+        }
+    });
+
+    networkManager.on('player-killed', (data) => {
+        if (data.victimId === networkManager.getPlayerId()) {
+            const event = new CustomEvent('local-player-killed', {
+                detail: { killerId: data.killerId }
+            });
+            document.dispatchEvent(event);
+        } else {
+            playerManager.setPlayerDead(data.victimId, true);
+        }
+    });
+
+    networkManager.on('player-respawned', (data) => {
+        if (data.id === networkManager.getPlayerId()) {
+            const event = new CustomEvent('local-player-respawn');
+            document.dispatchEvent(event);
+        } else {
+            playerManager.setPlayerDead(data.id, false);
+            playerManager.updatePlayerHealth(data.id, 100);
         }
     });
 
